@@ -28,8 +28,8 @@ def eval(model,dataloader, args, csv_path):
             # predict = colour_code_segmentation(np.array(predict), label_info)
 
             label = label.squeeze()
-            if args.loss == 'dice':
-                label = reverse_one_hot(label)
+            #if args.loss == 'dice':
+            label = reverse_one_hot(label)
             label = np.array(label.cpu())
             # label = colour_code_segmentation(np.array(label), label_info)
 
@@ -99,6 +99,7 @@ if __name__ == '__main__':
         '--data', '/path/to/data',
         '--cuda', '0',
         '--context_path', 'resnet101',
-        '--num_classes', '20'
+        '--num_classes', '20',
+        '--loss', 'crossentropy'
     ]
     main(params)

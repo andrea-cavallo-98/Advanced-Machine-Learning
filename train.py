@@ -33,8 +33,8 @@ def val(args, model, dataloader):
 
             # get RGB label image
             label = label.squeeze()
-            if args.loss == 'dice':
-                label = reverse_one_hot(label)
+            #if args.loss == 'dice':
+            label = reverse_one_hot(label)
             label = np.array(label.cpu())
 
             # compute per pixel accuracy
@@ -81,7 +81,10 @@ def train(args, model, optimizer, dataloader_train, dataloader_val):
         for i, (data, label) in enumerate(dataloader_train):
             
             data = data.cuda()
-            label = label.long().cuda()
+            if args.loss == 'dice':
+              label = label.long().cuda()
+            elif args.loss == 'crossentropy':
+              label = label.float().cuda()
             optimizer.zero_grad()
             
             with amp.autocast():
@@ -104,7 +107,7 @@ def train(args, model, optimizer, dataloader_train, dataloader_val):
         loss_train_mean = np.mean(loss_record)
         writer.add_scalar('epoch/loss_epoch_train', float(loss_train_mean), epoch)
         print('loss for train : %f' % (loss_train_mean))
-        if epoch % args.checkpoint_step == 0:
+        if epoch % args.checkpoint_step == 0 and epoch != 0:
             import os
             if not os.path.isdir(args.save_model_path):
                 os.mkdir(args.save_model_path)
@@ -128,7 +131,7 @@ def main(params):
     parser = argparse.ArgumentParser()
     parser.add_argument('--num_epochs', type=int, default=300, help='Number of epochs to train for')
     parser.add_argument('--epoch_start_i', type=int, default=0, help='Start counting epochs from this number')
-    parser.add_argument('--checkpoint_step', type=int, default=1, help='How often to save checkpoints (epochs)')
+    parser.add_argument('--checkpoint_step', type=int, default=10, help='How often to save checkpoints (epochs)')
     parser.add_argument('--validation_step', type=int, default=10, help='How often to perform validation (epochs)')
     parser.add_argument('--dataset', type=str, default="Cityscapes", help='Dataset you are using.')
     parser.add_argument('--crop_height', type=int, default=720, help='Height of cropped/resized input image to network')
@@ -200,16 +203,17 @@ def main(params):
 
 if __name__ == '__main__':
     params = [
-        '--num_epochs', '1000',
+        '--num_epochs', '50',
         '--learning_rate', '2.5e-2',
         '--data', './data/...',
         '--num_workers', '8',
         '--num_classes', '20',
         '--cuda', '0',
-        '--batch_size', '8',
+        '--batch_size', '16',
         '--save_model_path', './checkpoints_18_sgd',
         '--context_path', 'resnet101',  # set resnet18 or resnet101, only support resnet18 and resnet101
         '--optimizer', 'sgd',
+        '--loss', 'crossentropy'
 
     ]
     main(params)
