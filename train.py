@@ -12,7 +12,7 @@ from utils import reverse_one_hot, compute_global_accuracy, fast_hist, \
     per_class_iu
 from loss import DiceLoss
 import torch.cuda.amp as amp
-
+from dataset.cityscapes_dataset import cityscapesDataSet
 
 def val(args, model, dataloader):
     print('start val!')
@@ -104,7 +104,7 @@ def train(args, model, optimizer, dataloader_train, dataloader_val):
         loss_train_mean = np.mean(loss_record)
         writer.add_scalar('epoch/loss_epoch_train', float(loss_train_mean), epoch)
         print('loss for train : %f' % (loss_train_mean))
-        if epoch % args.checkpoint_step == 0 and epoch != 0:
+        if epoch % args.checkpoint_step == 0:
             import os
             if not os.path.isdir(args.save_model_path):
                 os.mkdir(args.save_model_path)
@@ -128,7 +128,7 @@ def main(params):
     parser = argparse.ArgumentParser()
     parser.add_argument('--num_epochs', type=int, default=300, help='Number of epochs to train for')
     parser.add_argument('--epoch_start_i', type=int, default=0, help='Start counting epochs from this number')
-    parser.add_argument('--checkpoint_step', type=int, default=10, help='How often to save checkpoints (epochs)')
+    parser.add_argument('--checkpoint_step', type=int, default=1, help='How often to save checkpoints (epochs)')
     parser.add_argument('--validation_step', type=int, default=10, help='How often to perform validation (epochs)')
     parser.add_argument('--dataset', type=str, default="Cityscapes", help='Dataset you are using.')
     parser.add_argument('--crop_height', type=int, default=720, help='Height of cropped/resized input image to network')
@@ -150,15 +150,24 @@ def main(params):
     args = parser.parse_args(params)
 
     # create dataset and dataloader
-    train_path = [os.path.join(args.data, 'train'), os.path.join(args.data, 'val')]
-    train_label_path = [os.path.join(args.data, 'train_labels'), os.path.join(args.data, 'val_labels')]
-    test_path = os.path.join(args.data, 'test')
-    test_label_path = os.path.join(args.data, 'test_labels')
-    csv_path = os.path.join(args.data, 'class_dict.csv')
+    #train_path = [os.path.join(args.data, 'train'), os.path.join(args.data, 'val')]
+    #train_label_path = [os.path.join(args.data, 'train_labels'), os.path.join(args.data, 'val_labels')]
+    #test_path = os.path.join(args.data, 'test')
+    #test_label_path = os.path.join(args.data, 'test_labels')
+    #csv_path = os.path.join(args.data, 'class_dict.csv')
     
-    # Define here your dataloaders
-    # dataloader_train
-    # dataloader_val
+    # Prepare Pytorch train/test Datasets
+    train_dataset = cityscapesDataSet("Cityscapes", "Cityscapes/train.txt")
+    test_dataset = cityscapesDataSet("Cityscapes", "Cityscapes/val.txt")
+
+
+    # Check dataset sizes
+    print('Train Dataset: {}'.format(len(train_dataset)))
+    print('Test Dataset: {}'.format(len(test_dataset)))
+    
+    # Dataloaders iterate over pytorch datasets and transparently provide useful functions (e.g. parallelization and shuffling)
+    train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4, drop_last=True)
+    test_dataloader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4)
 
     # build model
     os.environ['CUDA_VISIBLE_DEVICES'] = args.cuda
@@ -184,7 +193,7 @@ def main(params):
         print('Done!')
 
     # train
-    train(args, model, optimizer, dataloader_train, dataloader_val)
+    train(args, model, optimizer, train_dataloader, test_dataloader)
 
     # val(args, model, dataloader_val, csv_path)
 
@@ -195,11 +204,11 @@ if __name__ == '__main__':
         '--learning_rate', '2.5e-2',
         '--data', './data/...',
         '--num_workers', '8',
-        '--num_classes', '12',
+        '--num_classes', '20',
         '--cuda', '0',
         '--batch_size', '8',
         '--save_model_path', './checkpoints_18_sgd',
-        '--context_path', 'resnet18',  # set resnet18 or resnet101, only support resnet18 and resnet101
+        '--context_path', 'resnet101',  # set resnet18 or resnet101, only support resnet18 and resnet101
         '--optimizer', 'sgd',
 
     ]

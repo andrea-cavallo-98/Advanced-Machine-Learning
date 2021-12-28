@@ -6,6 +6,7 @@ from model.build_BiSeNet import BiSeNet
 import numpy as np
 from utils import reverse_one_hot, compute_global_accuracy, fast_hist, per_class_iu, cal_miou
 import tqdm
+from dataset.cityscapes_dataset import cityscapesDataSet
 
 
 def eval(model,dataloader, args, csv_path):
@@ -23,13 +24,13 @@ def eval(model,dataloader, args, csv_path):
                 label = label.cuda()
             predict = model(data).squeeze()
             predict = reverse_one_hot(predict)
-            predict = np.array(predict)
+            predict = np.array(predict.cpu())
             # predict = colour_code_segmentation(np.array(predict), label_info)
 
             label = label.squeeze()
             if args.loss == 'dice':
                 label = reverse_one_hot(label)
-            label = np.array(label)
+            label = np.array(label.cpu())
             # label = colour_code_segmentation(np.array(label), label_info)
 
             precision = compute_global_accuracy(predict, label)
@@ -37,10 +38,13 @@ def eval(model,dataloader, args, csv_path):
             precision_record.append(precision)
         precision = np.mean(precision_record)
         miou_list = per_class_iu(hist)[:-1]
-        miou_dict, miou = cal_miou(miou_list, csv_path)
-        print('IoU for each class:')
-        for key in miou_dict:
-            print('{}:{},'.format(key, miou_dict[key]))
+        miou = np.mean(miou_list)
+
+
+        #miou_dict, miou = cal_miou(miou_list, csv_path)
+        #print('IoU for each class:')
+        #for key in miou_dict:
+        #    print('{}:{},'.format(key, miou_dict[key]))
         tq.close()
         print('precision for test: %.3f' % precision)
         print('mIoU for validation: %.3f' % miou)
@@ -61,7 +65,16 @@ def main(params):
     parser.add_argument('--loss', type=str, default='dice', help='loss function, dice or crossentropy')
     args = parser.parse_args(params)
 
-    # create dataset and dataloader here
+    # Prepare Pytorch train/test Datasets
+    test_dataset = cityscapesDataSet("Cityscapes", "Cityscapes/val.txt")
+
+
+    # Check dataset sizes
+    print('Test Dataset: {}'.format(len(test_dataset)))
+    
+    # Dataloaders iterate over pytorch datasets and transparently provide useful functions (e.g. parallelization and shuffling)
+    test_dataloader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4)
+
    
     # build model
     os.environ['CUDA_VISIBLE_DEVICES'] = args.cuda
@@ -77,15 +90,15 @@ def main(params):
     # get label info
     # label_info = get_label_info(csv_path)
     # test
-    eval(model, dataloader, args, csv_path)
+    eval(model, test_dataloader, args, "file.csv")
 
 
 if __name__ == '__main__':
     params = [
-        '--checkpoint_path', 'path/to/ckpt',
+        '--checkpoint_path', './checkpoints_18_sgd/latest_dice_loss.pth',
         '--data', '/path/to/data',
         '--cuda', '0',
-        '--context_path', 'resnet18',
-        '--num_classes', '12'
+        '--context_path', 'resnet101',
+        '--num_classes', '20'
     ]
     main(params)
