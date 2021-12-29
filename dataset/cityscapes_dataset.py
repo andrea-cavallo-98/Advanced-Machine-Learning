@@ -13,7 +13,7 @@ class cityscapesDataSet(data.Dataset):
 
 
 
-    def __init__(self, root, list_path, max_iters=None, crop_size=(328, 328), mean=(128, 128, 128), scale=True, mirror=True, ignore_label=255, set='val'):
+    def __init__(self, root, list_path, augment=False, max_iters=None, crop_size=(328, 328), mean=(128, 128, 128), scale=True, mirror=True, ignore_label=255, set='val'):
         self.root = root
         self.list_path = list_path
         self.crop_size = crop_size
@@ -21,6 +21,7 @@ class cityscapesDataSet(data.Dataset):
         self.ignore_label = ignore_label
         self.mean = mean
         self.is_mirror = mirror
+        self.augment = augment
         # self.mean_bgr = np.array([104.00698793, 116.66876762, 122.67891434])
         self.img_ids = [i_id.strip() for i_id in open(list_path)]
         #if not max_iters==None:
@@ -87,16 +88,39 @@ class cityscapesDataSet(data.Dataset):
 
     def __getitem__(self, index):
 
-            # Mapping of ignore categories and valid ones (numbered from 1-19)
         
         datafiles = self.files[index]
 
         image = Image.open(datafiles["img"]).convert('RGB')
+        label = Image.open(datafiles["label"])
+
+        
+        if self.augment:
+          AUG_PROB = 0.5
+          # Define data augmentation
+          hflip_t = torchvision.transforms.RandomHorizontalFlip(p = 1)
+          scale_data = torchvision.transforms.RandomResizedCrop((328, 328), scale=(0.75, 1.0, 1.5, 1.75, 2.0))
+          scale_label = torchvision.transforms.RandomResizedCrop((328, 328), scale=(0.75, 1.0, 1.5, 1.75, 2.0))
+
+          aug_pipeline_data = torchvision.transforms.Compose([                                          
+                                                torchvision.transforms.RandomApply([hflip_t, scale_data], p = AUG_PROB),
+                                                #torchvision.transforms.ToTensor()
+                                                ])
+
+          aug_pipeline_label = torchvision.transforms.Compose([                                          
+                                                torchvision.transforms.RandomApply([hflip_t, scale_label], p = AUG_PROB),
+                                                #torchvision.transforms.ToTensor()
+                                                ])
+          image = aug_pipeline_data(image)
+          label = aug_pipeline_label(label)
+        
+
+
+
         name = datafiles["name"]
 
      
 
-        label = Image.open(datafiles["label"])
         #print("Initial shape of label: ", np.array(label).shape)
         # resize
         image = image.resize(self.crop_size, Image.BILINEAR)

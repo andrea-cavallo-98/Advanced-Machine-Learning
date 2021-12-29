@@ -13,6 +13,7 @@ from utils import reverse_one_hot, compute_global_accuracy, fast_hist, \
 from loss import DiceLoss
 import torch.cuda.amp as amp
 from dataset.cityscapes_dataset import cityscapesDataSet
+from torchvision import transforms
 
 def val(args, model, dataloader):
     print('start val!')
@@ -63,7 +64,6 @@ def val(args, model, dataloader):
 
 def train(args, model, optimizer, dataloader_train, dataloader_val):
     writer = SummaryWriter(comment=''.format(args.optimizer, args.context_path))
-
     scaler = amp.GradScaler()
 
     if args.loss == 'dice':
@@ -79,7 +79,6 @@ def train(args, model, optimizer, dataloader_train, dataloader_val):
         tq.set_description('epoch %d, lr %f' % (epoch, lr))
         loss_record = []
         for i, (data, label) in enumerate(dataloader_train):
-            
             data = data.cuda()
             if args.loss == 'dice':
               label = label.long().cuda()
@@ -149,6 +148,7 @@ def main(params):
     parser.add_argument('--save_model_path', type=str, default=None, help='path to save model')
     parser.add_argument('--optimizer', type=str, default='rmsprop', help='optimizer, support rmsprop, sgd, adam')
     parser.add_argument('--loss', type=str, default='dice', help='loss function, dice or crossentropy')
+    parser.add_argument('--augment', type=bool, default = True, help="True to perform data augmentation during training")
 
     args = parser.parse_args(params)
 
@@ -160,8 +160,8 @@ def main(params):
     #csv_path = os.path.join(args.data, 'class_dict.csv')
     
     # Prepare Pytorch train/test Datasets
-    train_dataset = cityscapesDataSet("Cityscapes", "Cityscapes/train.txt")
-    test_dataset = cityscapesDataSet("Cityscapes", "Cityscapes/val.txt")
+    train_dataset = cityscapesDataSet("Cityscapes", "Cityscapes/train.txt", augment=args.augment)
+    test_dataset = cityscapesDataSet("Cityscapes", "Cityscapes/val.txt", augment=False)
 
 
     # Check dataset sizes
@@ -213,7 +213,8 @@ if __name__ == '__main__':
         '--save_model_path', './checkpoints_18_sgd',
         '--context_path', 'resnet101',  # set resnet18 or resnet101, only support resnet18 and resnet101
         '--optimizer', 'sgd',
-        '--loss', 'crossentropy'
+        '--loss', 'crossentropy',
+        '--augment', 'True'
 
     ]
     main(params)

@@ -66,7 +66,7 @@ def main(params):
     args = parser.parse_args(params)
 
     # Prepare Pytorch train/test Datasets
-    test_dataset = cityscapesDataSet("Cityscapes", "Cityscapes/val.txt")
+    test_dataset = cityscapesDataSet("Cityscapes", "Cityscapes/val.txt", augment=False)
 
 
     # Check dataset sizes
