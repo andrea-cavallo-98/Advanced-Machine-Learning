@@ -108,7 +108,7 @@ def train(args, model, optimizer, dataloader_train, dataloader_val):
         loss_train_mean = np.mean(loss_record)
         writer.add_scalar('epoch/loss_epoch_train', float(loss_train_mean), epoch)
         print('loss for train : %f' % (loss_train_mean))
-        if (epoch % args.checkpoint_step == 0 and epoch != 0) or epoch == args.num_epochs:
+        if (epoch % args.checkpoint_step == 0 and epoch != 0) or epoch == args.num_epochs - 1:
             import os
             if not os.path.isdir(args.save_model_path):
                 os.mkdir(args.save_model_path)
