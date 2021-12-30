@@ -1,15 +1,15 @@
 Output of last 4 epochs of training: 
 
-epoch 46, lr 0.002575: 100% 496/496 [02:31<00:00,  3.27it/s, loss=0.791481]
-loss for train : 0.759685
-epoch 47, lr 0.001987: 100% 496/496 [02:31<00:00,  3.27it/s, loss=0.698850]
-loss for train : 0.759696
-epoch 48, lr 0.001380: 100% 496/496 [02:31<00:00,  3.27it/s, loss=0.727968]
-loss for train : 0.757810
-epoch 49, lr 0.000739: 100% 496/496 [02:31<00:00,  3.27it/s, loss=0.778079]
-loss for train : 0.754646
+epoch 46, lr 0.002575: 100% 496/496 [02:31<00:00,  3.27it/s, loss=0.728467]
+loss for train : 0.760537
+epoch 47, lr 0.001987: 100% 496/496 [02:31<00:00,  3.26it/s, loss=0.841786]
+loss for train : 0.758918
+epoch 48, lr 0.001380: 100% 496/496 [02:32<00:00,  3.26it/s, loss=0.767134]
+loss for train : 0.755886
+epoch 49, lr 0.000739: 100% 496/496 [02:32<00:00,  3.26it/s, loss=0.835664]
+loss for train : 0.754236
 
 Final evaluation output:
 
-precision for test: 0.846
-mIoU for validation: 0.388
+precision for test: 0.847
+mIoU for validation: 0.390
