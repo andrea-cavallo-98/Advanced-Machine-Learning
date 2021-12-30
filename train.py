@@ -19,15 +19,17 @@ def val(args, model, dataloader):
     print('start val!')
     # label_info = get_label_info(csv_path)
     with torch.no_grad():
+
         model.eval()
         precision_record = []
+        tq = tqdm(total=len(dataloader) * 1)
+        tq.set_description('eval')
         hist = np.zeros((args.num_classes, args.num_classes))
         for i, (data, label) in enumerate(dataloader):
-            label = label.type(torch.LongTensor)
-            data = data.cuda()
-            label = label.long().cuda()
-
-            # get RGB predict image
+            tq.update(1)
+            if torch.cuda.is_available() and args.use_gpu:
+                data = data.cuda()
+                label = label.cuda()
             predict = model(data).squeeze()
             predict = reverse_one_hot(predict)
             predict = np.array(predict.cpu())
@@ -72,7 +74,7 @@ def train(args, model, optimizer, dataloader_train, dataloader_val):
         loss_func = torch.nn.CrossEntropyLoss()
     max_miou = 0
     step = 0
-    for epoch in range(args.num_epochs):
+    for epoch in range(args.epoch_start_i, args.num_epochs):
         lr = poly_lr_scheduler(optimizer, args.learning_rate, iter=epoch, max_iter=args.num_epochs)
         model.train()
         tq = tqdm(total=len(dataloader_train) * args.batch_size)
@@ -106,7 +108,7 @@ def train(args, model, optimizer, dataloader_train, dataloader_val):
         loss_train_mean = np.mean(loss_record)
         writer.add_scalar('epoch/loss_epoch_train', float(loss_train_mean), epoch)
         print('loss for train : %f' % (loss_train_mean))
-        if epoch % args.checkpoint_step == 0 and epoch != 0:
+        if (epoch % args.checkpoint_step == 0 and epoch != 0) or epoch == args.num_epochs:
             import os
             if not os.path.isdir(args.save_model_path):
                 os.mkdir(args.save_model_path)
@@ -170,7 +172,7 @@ def main(params):
     
     # Dataloaders iterate over pytorch datasets and transparently provide useful functions (e.g. parallelization and shuffling)
     train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4, drop_last=True)
-    test_dataloader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4)
+    test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=4)
 
     # build model
     os.environ['CUDA_VISIBLE_DEVICES'] = args.cuda
@@ -200,12 +202,11 @@ def main(params):
 
     # val(args, model, dataloader_val, csv_path)
 
-
 if __name__ == '__main__':
     params = [
         '--num_epochs', '50',
+        '--epoch_start_i', '0',
         '--learning_rate', '2.5e-2',
-        '--data', './data/...',
         '--num_workers', '8',
         '--num_classes', '20',
         '--cuda', '0',
@@ -214,7 +215,9 @@ if __name__ == '__main__':
         '--context_path', 'resnet101',  # set resnet18 or resnet101, only support resnet18 and resnet101
         '--optimizer', 'sgd',
         '--loss', 'crossentropy',
-        '--augment', 'True'
+        '--augment', 'True',
+        '--checkpoint_step', '5',
+        '--pretrained_model_path', './checkpoints_18_sgd/latest_dice_loss.pth'
 
     ]
     main(params)

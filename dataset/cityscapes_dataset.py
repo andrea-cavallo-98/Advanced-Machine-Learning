@@ -87,39 +87,23 @@ class cityscapesDataSet(data.Dataset):
         return label_mask
 
     def __getitem__(self, index):
-
         
         datafiles = self.files[index]
 
         image = Image.open(datafiles["img"]).convert('RGB')
         label = Image.open(datafiles["label"])
-
         
         if self.augment:
           AUG_PROB = 0.5
-          # Define data augmentation
-          hflip_t = torchvision.transforms.RandomHorizontalFlip(p = 1)
-          scale_data = torchvision.transforms.RandomResizedCrop((328, 328), scale=(0.75, 1.0, 1.5, 1.75, 2.0))
-          scale_label = torchvision.transforms.RandomResizedCrop((328, 328), scale=(0.75, 1.0, 1.5, 1.75, 2.0))
 
-          aug_pipeline_data = torchvision.transforms.Compose([                                          
-                                                torchvision.transforms.RandomApply([hflip_t, scale_data], p = AUG_PROB),
-                                                #torchvision.transforms.ToTensor()
-                                                ])
+          if np.random.rand() < AUG_PROB:
 
-          aug_pipeline_label = torchvision.transforms.Compose([                                          
-                                                torchvision.transforms.RandomApply([hflip_t, scale_label], p = AUG_PROB),
-                                                #torchvision.transforms.ToTensor()
-                                                ])
-          image = aug_pipeline_data(image)
-          label = aug_pipeline_label(label)
+            hflip_t = torchvision.transforms.RandomHorizontalFlip(p = 1)
+            
+            image = hflip_t(image)
+            label = hflip_t(label)
         
-
-
-
         name = datafiles["name"]
-
-     
 
         #print("Initial shape of label: ", np.array(label).shape)
         # resize
@@ -150,6 +134,7 @@ class cityscapesDataSet(data.Dataset):
 
 
 if __name__ == '__main__':
+    """
     dst = GTA5DataSet("./data", is_transform=True)
     trainloader = data.DataLoader(dst, batch_size=4)
     for i, data in enumerate(trainloader):
@@ -160,3 +145,28 @@ if __name__ == '__main__':
             img = img[:, :, ::-1]
             plt.imshow(img)
             plt.show()
+    """
+    image = Image.open("/content/Cityscapes/images/aachen_000001_000019_leftImg8bit.png").convert('RGB')
+    label = Image.open("/content/Cityscapes/labels/aachen_000001_000019_gtFine_labelIds.png")
+    img = np.asarray(image)
+    plt.imshow(img)
+    plt.savefig("original_image")
+    img = np.asarray(label)
+    plt.imshow(img)
+    plt.savefig("original_label")
+    
+    hflip_t = torchvision.transforms.RandomHorizontalFlip(p = 1)
+    image = hflip_t(image)
+    label = hflip_t(label)
+    img = np.asarray(image)
+    plt.imshow(img)
+    plt.savefig("augmented_image")
+    img = np.asarray(label)
+    plt.imshow(img)
+    plt.savefig("augmented_label")
+
+
+
+
+
+
