@@ -66,19 +66,12 @@ class GTA5DataSet(data.Dataset):
         for k, v in self.id_to_trainid.items():
             label_copy[label == k] = v
 
-        complete_labels = []
-        for c in range(20):
-          current_mask = 1 * (label_copy == c)
-          complete_labels.append(current_mask)
-        
-        complete_labels = np.array(complete_labels)
-
         size = image.shape
         image = image[:, :, ::-1]  # change to BGR
         image -= self.mean
         image = image.transpose((2, 0, 1))
 
-        return image.copy(), complete_labels.copy()
+        return image.copy(), label_copy.copy()
 
 
 if __name__ == '__main__':
