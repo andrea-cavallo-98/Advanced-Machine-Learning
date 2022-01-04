@@ -9,7 +9,7 @@ import tqdm
 from dataset.cityscapes_dataset import cityscapesDataSet
 
 
-def eval(model,dataloader, args, csv_path):
+def eval(model, dataloader, args, csv_path):
     print('start test!')
     with torch.no_grad():
         model.eval()
@@ -17,7 +17,7 @@ def eval(model,dataloader, args, csv_path):
         tq = tqdm.tqdm(total=len(dataloader) * args.batch_size)
         tq.set_description('test')
         hist = np.zeros((args.num_classes, args.num_classes))
-        for i, (data, label) in enumerate(dataloader):
+        for i, (data, label, _) in enumerate(dataloader):
             tq.update(args.batch_size)
             if torch.cuda.is_available() and args.use_gpu:
                 data = data.cuda()
@@ -28,7 +28,7 @@ def eval(model,dataloader, args, csv_path):
             # predict = colour_code_segmentation(np.array(predict), label_info)
 
             label = label.squeeze()
-            #if args.loss == 'dice':
+            # if args.loss == 'dice':
             label = reverse_one_hot(label)
             label = np.array(label.cpu())
             # label = colour_code_segmentation(np.array(label), label_info)
@@ -40,20 +40,21 @@ def eval(model,dataloader, args, csv_path):
         miou_list = per_class_iu(hist)[:-1]
         miou = np.mean(miou_list)
 
-
-        #miou_dict, miou = cal_miou(miou_list, csv_path)
-        #print('IoU for each class:')
-        #for key in miou_dict:
+        # miou_dict, miou = cal_miou(miou_list, csv_path)
+        # print('IoU for each class:')
+        # for key in miou_dict:
         #    print('{}:{},'.format(key, miou_dict[key]))
         tq.close()
         print('precision for test: %.3f' % precision)
         print('mIoU for validation: %.3f' % miou)
         return precision
 
+
 def main(params):
     # basic parameters
     parser = argparse.ArgumentParser()
-    parser.add_argument('--checkpoint_path', type=str, default=None, required=True, help='The path to the pretrained weights of model')
+    parser.add_argument('--checkpoint_path', type=str, default=None, required=True,
+                        help='The path to the pretrained weights of model')
     parser.add_argument('--crop_height', type=int, default=720, help='Height of cropped/resized input image to network')
     parser.add_argument('--crop_width', type=int, default=960, help='Width of cropped/resized input image to network')
     parser.add_argument('--data', type=str, default='/path/to/data', help='Path of training data')
@@ -68,14 +69,12 @@ def main(params):
     # Prepare Pytorch train/test Datasets
     test_dataset = cityscapesDataSet("Cityscapes", "Cityscapes/val.txt", augment=False)
 
-
     # Check dataset sizes
     print('Test Dataset: {}'.format(len(test_dataset)))
-    
+
     # Dataloaders iterate over pytorch datasets and transparently provide useful functions (e.g. parallelization and shuffling)
     test_dataloader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4)
 
-   
     # build model
     os.environ['CUDA_VISIBLE_DEVICES'] = args.cuda
     model = BiSeNet(args.num_classes, args.context_path)

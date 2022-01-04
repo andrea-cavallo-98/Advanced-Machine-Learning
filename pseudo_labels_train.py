@@ -24,6 +24,7 @@ from model.discriminator import FCDiscriminator, Lightweight_FCDiscriminator
 from loss import CrossEntropy2d
 from dataset.gta5_dataset import GTA5DataSet
 from dataset.cityscapes_dataset import cityscapesDataSet
+from SSL import ssl
 
 IMG_MEAN = np.array((104.00698793, 116.66876762, 122.67891434), dtype=np.float32)
 
@@ -51,10 +52,11 @@ SAVE_PRED_EVERY = 5
 SNAPSHOT_DIR = './snapshots/'
 WEIGHT_DECAY = 0.0005
 
+SSL_EVERY = 5
+
 LEARNING_RATE_D = 1e-4
 LAMBDA_SEG = 0.1
-LAMBDA_ADV_TARGET1 = 0.0002
-LAMBDA_ADV_TARGET2 = 0.001
+LAMBDA_ADV_TARGET = 0.001
 GAN = 'Vanilla'
 
 TARGET = 'cityscapes'
@@ -99,9 +101,7 @@ def get_arguments():
                         help="Base learning rate for discriminator.")
     parser.add_argument("--lambda-seg", type=float, default=LAMBDA_SEG,
                         help="lambda_seg.")
-    parser.add_argument("--lambda-adv-target1", type=float, default=LAMBDA_ADV_TARGET1,
-                        help="lambda_adv for adversarial training.")
-    parser.add_argument("--lambda-adv-target2", type=float, default=LAMBDA_ADV_TARGET2,
+    parser.add_argument("--lambda-adv-target", type=float, default=LAMBDA_ADV_TARGET,
                         help="lambda_adv for adversarial training.")
     parser.add_argument("--momentum", type=float, default=MOMENTUM,
                         help="Momentum component of the optimiser.")
@@ -145,6 +145,8 @@ def get_arguments():
                         help="choose pretrained-model-path")
     parser.add_argument("--pretrained-discriminator-path", type=str, default=None,
                         help="choose pretrained-discriminator-path.")
+    parser.add_argument("--ssl-every", type=str, default=SSL_EVERY,
+                        help="choose when you want to use the SSL.")
     return parser.parse_args()
 
 
@@ -193,6 +195,8 @@ def main():
     cudnn.enabled = True
     gpu = args.gpu
 
+    created_pseudo_labels = False
+
     # Create network
     if args.model == 'BiSeNet':
         model = BiSeNet(args.num_classes, 'resnet101')
@@ -227,11 +231,6 @@ def main():
         model.module.load_state_dict(torch.load(args.pretrained_discriminator_path))
         print('Done!')
 
-    model.eval().cuda()
-    model_D1.eval().cuda()
-    summary(model, (BATCH_SIZE, 3, 328, 328))
-    summary(model_D1, (BATCH_SIZE, 20, 328, 328))
-
     model.train()
     model.cuda(args.gpu)
     model_D1.train()
@@ -239,6 +238,8 @@ def main():
 
     if not os.path.exists(args.snapshot_dir):
         os.makedirs(args.snapshot_dir)
+    if not os.path.exists('pseudo_labels'):
+        os.makedirs('pseudo_labels')
 
     for e_epoch in range(args.num_epochs):
 
@@ -250,13 +251,16 @@ def main():
 
         trainloader_iter = enumerate(trainloader)
 
-        targetloader = data.DataLoader(cityscapesDataSet(args.data_dir_target, args.data_list_target,
-                                                         max_iters=args.num_steps * args.iter_size * args.batch_size,
-                                                         crop_size=input_size_target,
-                                                         scale=False, mirror=args.random_mirror, mean=IMG_MEAN,
-                                                         set=args.set),
-                                       batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers,
-                                       pin_memory=True)
+        if created_pseudo_labels:
+            targetloader = data.DataLoader(cityscapesDataSet(args.data_dir_target, args.data_list_target, mean=IMG_MEAN,
+                                                             pseudo_labels_path='pseudo_labels/'),
+                                           batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers,
+                                           pin_memory=True)
+        else:
+            targetloader = data.DataLoader(
+                cityscapesDataSet(args.data_dir_target, args.data_list_target, mean=IMG_MEAN),
+                batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers,
+                pin_memory=True)
 
         targetloader_iter = enumerate(targetloader)
 
@@ -332,12 +336,22 @@ def main():
 
                 # train with target
 
-                _, batch = targetloader_iter.__next__()
-                images, _, _ = batch
-                images = Variable(images).cuda(args.gpu)
+                if not created_pseudo_labels:
+                    _, batch = targetloader_iter.__next__()
+                    images, _, _ = batch
+                    images = Variable(images).cuda(args.gpu)
 
-                pred_target1, _, _ = model(images)
-                # pred_target1 = interp_target(pred_target1)
+                    pred_target1, _, _ = model(images)
+                    loss_seg_trg = 0
+                    # pred_target1 = interp_target(pred_target1)
+
+                else:
+                    _, batch = targetloader_iter.__next__()
+                    images, labels, _ = batch
+                    images = Variable(images).cuda(args.gpu)
+
+                    pred_target1, _, _ = model(images)
+                    loss_seg_trg = loss_calc(pred_target1, labels, args.gpu)
 
                 D_out1 = model_D1(F.softmax(pred_target1))
 
@@ -345,7 +359,7 @@ def main():
                                             Variable(torch.FloatTensor(D_out1.data.size()).fill_(source_label)).cuda(
                                                 args.gpu))
 
-                loss = loss_adv_target1
+                loss = loss_adv_target1 * args.lambda_adv_target + loss_seg_trg
                 loss = loss / args.iter_size
                 loss.backward()
                 loss_adv_target_value1 += loss_adv_target1.data.cpu()
@@ -390,6 +404,12 @@ def main():
             tq.update(args.batch_size)
 
         tq.close()
+
+        # if e_epoch % args.ssl_every == 0 and e_epoch != 0:
+        if e_epoch % args.ssl_every == 0:
+            ssl(model, 'pseudo_labels', args.num_classes, 1, args.num_workers)
+            created_pseudo_labels = True
+
         print(
             'epoch = {0} loss_seg1 = {1:.3f}  loss_adv1 = {2:.3f},  loss_D1 = {3:.3f} '.format(
                 e_epoch, loss_seg_value1 / args.num_steps, loss_adv_target_value1 / args.num_steps,

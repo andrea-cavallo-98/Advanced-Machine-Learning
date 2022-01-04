@@ -15,6 +15,9 @@ import torch.cuda.amp as amp
 from dataset.cityscapes_dataset import cityscapesDataSet
 from torchvision import transforms
 
+IMG_MEAN = np.array((104.00698793, 116.66876762, 122.67891434), dtype=np.float32)
+
+
 def val(args, model, dataloader):
     print('start val!')
     # label_info = get_label_info(csv_path)
@@ -25,7 +28,7 @@ def val(args, model, dataloader):
         tq = tqdm(total=len(dataloader) * 1)
         tq.set_description('eval')
         hist = np.zeros((args.num_classes, args.num_classes))
-        for i, (data, label) in enumerate(dataloader):
+        for i, (data, label, _) in enumerate(dataloader):
             tq.update(1)
             if torch.cuda.is_available() and args.use_gpu:
                 data = data.cuda()
@@ -36,7 +39,7 @@ def val(args, model, dataloader):
 
             # get RGB label image
             label = label.squeeze()
-            #if args.loss == 'dice':
+            # if args.loss == 'dice':
             label = reverse_one_hot(label)
             label = np.array(label.cpu())
 
@@ -48,7 +51,7 @@ def val(args, model, dataloader):
             # predict = colour_code_segmentation(np.array(predict), label_info)
             # label = colour_code_segmentation(np.array(label), label_info)
             precision_record.append(precision)
-        
+
         precision = np.mean(precision_record)
         # miou = np.mean(per_class_iu(hist))
         miou_list = per_class_iu(hist)[:-1]
@@ -80,25 +83,25 @@ def train(args, model, optimizer, dataloader_train, dataloader_val):
         tq = tqdm(total=len(dataloader_train) * args.batch_size)
         tq.set_description('epoch %d, lr %f' % (epoch, lr))
         loss_record = []
-        for i, (data, label) in enumerate(dataloader_train):
+        for i, (data, label, _) in enumerate(dataloader_train):
             data = data.cuda()
             if args.loss == 'dice':
-              label = label.long().cuda()
+                label = label.long().cuda()
             elif args.loss == 'crossentropy':
-              label = label.float().cuda()
+                label = label.float().cuda()
             optimizer.zero_grad()
-            
+
             with amp.autocast():
                 output, output_sup1, output_sup2 = model(data)
                 loss1 = loss_func(output, label)
                 loss2 = loss_func(output_sup1, label)
                 loss3 = loss_func(output_sup2, label)
                 loss = loss1 + loss2 + loss3
-            
+
             scaler.scale(loss).backward()
             scaler.step(optimizer)
             scaler.update()
-            
+
             tq.update(args.batch_size)
             tq.set_postfix(loss='%.6f' % loss)
             step += 1
@@ -119,7 +122,7 @@ def train(args, model, optimizer, dataloader_train, dataloader_val):
             precision, miou = val(args, model, dataloader_val)
             if miou > max_miou:
                 max_miou = miou
-                import os 
+                import os
                 os.makedirs(args.save_model_path, exist_ok=True)
                 torch.save(model.module.state_dict(),
                            os.path.join(args.save_model_path, 'best_dice_loss.pth'))
@@ -150,28 +153,28 @@ def main(params):
     parser.add_argument('--save_model_path', type=str, default=None, help='path to save model')
     parser.add_argument('--optimizer', type=str, default='rmsprop', help='optimizer, support rmsprop, sgd, adam')
     parser.add_argument('--loss', type=str, default='dice', help='loss function, dice or crossentropy')
-    parser.add_argument('--augment', type=bool, default = True, help="True to perform data augmentation during training")
+    parser.add_argument('--augment', type=bool, default=True, help="True to perform data augmentation during training")
 
     args = parser.parse_args(params)
 
     # create dataset and dataloader
-    #train_path = [os.path.join(args.data, 'train'), os.path.join(args.data, 'val')]
-    #train_label_path = [os.path.join(args.data, 'train_labels'), os.path.join(args.data, 'val_labels')]
-    #test_path = os.path.join(args.data, 'test')
-    #test_label_path = os.path.join(args.data, 'test_labels')
-    #csv_path = os.path.join(args.data, 'class_dict.csv')
-    
-    # Prepare Pytorch train/test Datasets
-    train_dataset = cityscapesDataSet("Cityscapes", "Cityscapes/train.txt", augment=args.augment)
-    test_dataset = cityscapesDataSet("Cityscapes", "Cityscapes/val.txt", augment=False)
+    # train_path = [os.path.join(args.data, 'train'), os.path.join(args.data, 'val')]
+    # train_label_path = [os.path.join(args.data, 'train_labels'), os.path.join(args.data, 'val_labels')]
+    # test_path = os.path.join(args.data, 'test')
+    # test_label_path = os.path.join(args.data, 'test_labels')
+    # csv_path = os.path.join(args.data, 'class_dict.csv')
 
+    # Prepare Pytorch train/test Datasets
+    train_dataset = cityscapesDataSet("Cityscapes", "Cityscapes/train.txt", augment=args.augment, mean=IMG_MEAN)
+    test_dataset = cityscapesDataSet("Cityscapes", "Cityscapes/val.txt", augment=False)
 
     # Check dataset sizes
     print('Train Dataset: {}'.format(len(train_dataset)))
     print('Test Dataset: {}'.format(len(test_dataset)))
-    
+
     # Dataloaders iterate over pytorch datasets and transparently provide useful functions (e.g. parallelization and shuffling)
-    train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4, drop_last=True)
+    train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4,
+                                  drop_last=True)
     test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=4)
 
     # build model
@@ -202,6 +205,7 @@ def main(params):
 
     # val(args, model, dataloader_val, csv_path)
 
+
 if __name__ == '__main__':
     params = [
         '--num_epochs', '50',
@@ -217,7 +221,6 @@ if __name__ == '__main__':
         '--loss', 'crossentropy',
         '--augment', 'True',
         '--checkpoint_step', '5',
-        '--pretrained_model_path', './checkpoints_18_sgd/latest_dice_loss.pth'
 
     ]
     main(params)
