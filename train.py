@@ -40,7 +40,7 @@ def val(args, model, dataloader):
             # get RGB label image
             label = label.squeeze()
             # if args.loss == 'dice':
-            label = reverse_one_hot(label)
+            # label = reverse_one_hot(label)
             label = np.array(label.cpu())
 
             # compute per pixel accuracy
@@ -54,7 +54,8 @@ def val(args, model, dataloader):
 
         precision = np.mean(precision_record)
         # miou = np.mean(per_class_iu(hist))
-        miou_list = per_class_iu(hist)[:-1]
+        # miou_list = per_class_iu(hist)[:-1]
+        miou_list = per_class_iu(hist)
         # miou_dict, miou = cal_miou(miou_list, csv_path)
         miou = np.mean(miou_list)
         print('precision per pixel for test: %.3f' % precision)
@@ -74,7 +75,7 @@ def train(args, model, optimizer, dataloader_train, dataloader_val):
     if args.loss == 'dice':
         loss_func = DiceLoss()
     elif args.loss == 'crossentropy':
-        loss_func = torch.nn.CrossEntropyLoss()
+        loss_func = torch.nn.CrossEntropyLoss(ignore_index=255)
     max_miou = 0
     step = 0
     for epoch in range(args.epoch_start_i, args.num_epochs):
@@ -88,7 +89,7 @@ def train(args, model, optimizer, dataloader_train, dataloader_val):
             if args.loss == 'dice':
                 label = label.long().cuda()
             elif args.loss == 'crossentropy':
-                label = label.float().cuda()
+                label = label.long().cuda()
             optimizer.zero_grad()
 
             with amp.autocast():
@@ -136,7 +137,7 @@ def main(params):
     parser.add_argument('--num_epochs', type=int, default=300, help='Number of epochs to train for')
     parser.add_argument('--epoch_start_i', type=int, default=0, help='Start counting epochs from this number')
     parser.add_argument('--checkpoint_step', type=int, default=10, help='How often to save checkpoints (epochs)')
-    parser.add_argument('--validation_step', type=int, default=10, help='How often to perform validation (epochs)')
+    parser.add_argument('--validation_step', type=int, default=4, help='How often to perform validation (epochs)')
     parser.add_argument('--dataset', type=str, default="Cityscapes", help='Dataset you are using.')
     parser.add_argument('--crop_height', type=int, default=720, help='Height of cropped/resized input image to network')
     parser.add_argument('--crop_width', type=int, default=960, help='Width of cropped/resized input image to network')
@@ -212,7 +213,7 @@ if __name__ == '__main__':
         '--epoch_start_i', '0',
         '--learning_rate', '2.5e-2',
         '--num_workers', '8',
-        '--num_classes', '20',
+        '--num_classes', '19',
         '--cuda', '0',
         '--batch_size', '16',
         '--save_model_path', './checkpoints_18_sgd',
@@ -220,7 +221,7 @@ if __name__ == '__main__':
         '--optimizer', 'sgd',
         '--loss', 'crossentropy',
         '--augment', 'True',
-        '--checkpoint_step', '5',
+        '--checkpoint_step', '4',
 
     ]
     main(params)

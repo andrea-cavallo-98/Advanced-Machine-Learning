@@ -29,7 +29,7 @@ def eval(model, dataloader, args, csv_path):
 
             label = label.squeeze()
             # if args.loss == 'dice':
-            label = reverse_one_hot(label)
+            # label = reverse_one_hot(label)
             label = np.array(label.cpu())
             # label = colour_code_segmentation(np.array(label), label_info)
 
@@ -37,7 +37,8 @@ def eval(model, dataloader, args, csv_path):
             hist += fast_hist(label.flatten(), predict.flatten(), args.num_classes)
             precision_record.append(precision)
         precision = np.mean(precision_record)
-        miou_list = per_class_iu(hist)[:-1]
+        #miou_list = per_class_iu(hist)[:-1]
+        miou_list = per_class_iu(hist)
         miou = np.mean(miou_list)
 
         # miou_dict, miou = cal_miou(miou_list, csv_path)
@@ -98,7 +99,7 @@ if __name__ == '__main__':
         '--data', '/path/to/data',
         '--cuda', '0',
         '--context_path', 'resnet101',
-        '--num_classes', '20',
+        '--num_classes', '19',
         '--loss', 'crossentropy'
     ]
     main(params)

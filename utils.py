@@ -26,18 +26,13 @@ def poly_lr_scheduler(optimizer, init_lr, iter, lr_decay_iter=1,
 	return lr
 	# return lr
 
-def get_label_info(csv_path):
+def get_label_info():
 	# return label -> {label_name: [r_value, g_value, b_value, ...}
-	ann = pd.read_csv(csv_path)
-	label = {}
-	for iter, row in ann.iterrows():
-		label_name = row['name']
-		r = row['r']
-		g = row['g']
-		b = row['b']
-		class_11 = row['class_11']
-		label[label_name] = [int(r), int(g), int(b), class_11]
-	return label
+	palette={0:[128,64,128],1:[244,35,232],2:[70,70,70],3:[102,102,156],4:[190,153,153],
+          5:[153,153,153],6:[250,170,30],7:[220,220,0],8:[107,142,35],9:[152,251,152],
+          10:[70,130,180],11:[220,20,60],12:[255,0,0],13:[0,0,142],14:[0,0,70],15:[0,60,100],
+          16:[0,80,100],17:[0,0,230],18:[119,11,32],-1:[0,0,0]}
+	return palette
 
 def one_hot_it(label, label_info):
 	# return semantic_map -> [H, W]
@@ -141,8 +136,8 @@ def colour_code_segmentation(image, label_values):
 	# for i in range(0, w):
 	#     for j in range(0, h):
 	#         x[i, j, :] = colour_codes[int(image[i, j])]
-	label_values = [label_values[key][:3] for key in label_values if label_values[key][3] == 1]
-	label_values.append([0, 0, 0])
+	label_values = [label_values[key] for key in label_values]
+	# label_values.append([0, 0, 0])
 	colour_codes = np.array(label_values)
 	x = colour_codes[image.astype(int)]
 
@@ -153,9 +148,11 @@ def compute_global_accuracy(pred, label):
 	label = label.flatten()
 	total = len(label)
 	count = 0.0
-	for i in range(total):
-		if pred[i] == label[i]:
-			count = count + 1.0
+	for i in range(len(label)):
+	  if label[i] == 255:
+	    total = total - 1
+	  if pred[i] == label[i]:
+	    count = count + 1.0
 	return float(count) / float(total)
 
 def fast_hist(a, b, n):

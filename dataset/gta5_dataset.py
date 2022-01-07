@@ -25,12 +25,11 @@ class GTA5DataSet(data.Dataset):
         #    self.img_ids = self.img_ids * int(np.ceil(float(max_iters) / len(self.img_ids)))
         self.files = []
 
-        self.id_to_trainid = { 
-                0: 0, 1: 0, 2: 0,3: 0,4: 0, 5: 0,6: 0,7: 1,8: 2,9: 0,
-                10: 0,11: 3,12: 4,13: 5,14: 0,15: 0,16: 0,17: 6,18: 0,
-                19: 7,20: 8,21: 9,22: 10, 23: 11,24: 12,25: 13,26: 14,
-                27: 15,28: 16,29: 0,30: 0,31: 17,32: 18,33: 19,-1: 0
-                }
+        self.id_to_trainid = [[0, 255],[1, 255],[2, 255],[3, 255],[4, 255],[5, 255],
+        [6, 255],[7, 0],[8, 1],[9, 255],[10, 255],[11, 2],[12, 3],[13, 4],
+        [14, 255],[15, 255],[16, 255],[17, 5],[18, 255],[19, 6],[20, 7],[21, 8],[22, 9],
+        [23, 10],[24, 11],[25, 12],[26, 13],[27, 14],[28, 15],[29, 255],
+        [30, 255],[31, 16],[32, 17],[33, 18],[-1, 255]]
 
         # for split in ["train", "trainval", "val"]:
         for name in self.img_ids:
@@ -63,8 +62,8 @@ class GTA5DataSet(data.Dataset):
 
         # re-assign labels to match the format of Cityscapes
         label_copy = 255 * np.ones(label.shape, dtype=np.float32)
-        for k, v in self.id_to_trainid.items():
-            label_copy[label == k] = v
+        for k in self.id_to_trainid:
+            label_copy[label == k[0]] = k[1]
 
         size = image.shape
         image = image[:, :, ::-1]  # change to BGR
