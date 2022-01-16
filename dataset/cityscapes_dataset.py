@@ -1,4 +1,5 @@
 import os
+import shutil
 import os.path as osp
 import numpy as np
 import random
@@ -8,6 +9,35 @@ import torch
 import torchvision
 from torch.utils import data
 from PIL import Image
+# some_file.py
+import sys
+# insert at 1, 0 is the script path (or '' in REPL)
+sys.path.insert(1, '/content/Advanced-Machine-Learning/')
+from torch.utils.data import DataLoader
+import cv2
+
+from utils import get_label_info, colour_code_segmentation
+IMG_MEAN = np.array((104.00698793, 116.66876762, 122.67891434), dtype=np.float32)
+
+def print_image_and_label(dataloader):
+  
+  label_info = get_label_info()
+  for i, (image, label, name) in enumerate(dataloader):
+    image = np.asarray(image, np.float32)
+    # process image
+    image = np.transpose(image.squeeze(), (1, 2, 0))
+    image = IMG_MEAN + image.squeeze()
+    image = image[:, :, ::-1]
+    image = cv2.resize(np.uint8(image), (960, 720))
+
+    # process label
+    label = colour_code_segmentation(np.array(label.squeeze()), label_info)
+    label = cv2.resize(np.uint8(label), (960, 720))
+    label = cv2.cvtColor(np.uint8(label), cv2.COLOR_RGB2BGR)
+
+    added_image = cv2.addWeighted(image,0.4,label,0.5,0)
+    cv2.imwrite('demo_images/' + name[0].split("/")[-1], added_image)
+
 
 
 class cityscapesDataSet(data.Dataset):
@@ -64,6 +94,7 @@ class cityscapesDataSet(data.Dataset):
 
         image = Image.open(datafiles["img"]).convert('RGB')
         label = Image.open(datafiles["label"])
+        name = datafiles["name"]
 
         if self.augment:
             AUG_PROB = 0.5
@@ -73,8 +104,8 @@ class cityscapesDataSet(data.Dataset):
 
                 image = hflip_t(image)
                 label = hflip_t(label)
+                print("--- Image " + name + " was flipped!!")
 
-        name = datafiles["name"]
 
         # print("Initial shape of label: ", np.array(label).shape)
         # resize
@@ -109,38 +140,15 @@ class cityscapesDataSet(data.Dataset):
 
 
 if __name__ == '__main__':
-    """
-    dst = GTA5DataSet("./data", is_transform=True)
-    trainloader = data.DataLoader(dst, batch_size=4)
-    for i, data in enumerate(trainloader):
-        imgs, labels = data
-        if i == 0:
-            img = torchvision.utils.make_grid(imgs).numpy()
-            img = np.transpose(img, (1, 2, 0))
-            img = img[:, :, ::-1]
-            plt.imshow(img)
-            plt.show()
-    """
-    image = Image.open("/content/Cityscapes/images/aachen_000001_000019_leftImg8bit.png").convert('RGB')
-    label = Image.open("/content/Cityscapes/labels/aachen_000001_000019_gtFine_labelIds.png")
-    img = np.asarray(image)
-    plt.imshow(img)
-    plt.savefig("original_image")
-    img = np.asarray(label)
-    plt.imshow(img)
-    plt.savefig("original_label")
 
-    hflip_t = torchvision.transforms.RandomHorizontalFlip(p=1)
-    image = hflip_t(image)
-    label = hflip_t(label)
-    img = np.asarray(image)
-    plt.imshow(img)
-    plt.savefig("augmented_image")
-    img = np.asarray(label)
-    plt.imshow(img)
-    plt.savefig("augmented_label")
+  if os.path.exists("demo_images/"):
+    shutil.rmtree("demo_images/")
+  os.makedirs("demo_images/")
 
+  test_dataset = cityscapesDataSet("Cityscapes", "Cityscapes/val.txt", augment=True)
+  test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=4)
 
+  print_image_and_label(test_dataloader)
 
 
 
