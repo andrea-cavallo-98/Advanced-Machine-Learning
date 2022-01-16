@@ -104,7 +104,7 @@ class cityscapesDataSet(data.Dataset):
 
                 image = hflip_t(image)
                 label = hflip_t(label)
-                print("--- Image " + name + " was flipped!!")
+                #print("--- Image " + name + " was flipped!!")
 
 
         # print("Initial shape of label: ", np.array(label).shape)
