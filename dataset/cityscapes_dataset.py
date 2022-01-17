@@ -26,9 +26,10 @@ def print_image_and_label(dataloader):
     image = np.asarray(image, np.float32)
     # process image
     image = np.transpose(image.squeeze(), (1, 2, 0))
-    image = IMG_MEAN + image.squeeze()
+    image = (128, 128, 128) + image.squeeze()
     image = image[:, :, ::-1]
     image = cv2.resize(np.uint8(image), (960, 720))
+    image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
 
     # process label
     label = colour_code_segmentation(np.array(label.squeeze()), label_info)
@@ -113,11 +114,9 @@ class cityscapesDataSet(data.Dataset):
         label = label.resize(self.crop_size, Image.NEAREST)
 
         image = np.asarray(image, np.float32)
-        label = np.asarray(label)
+        label = np.asarray(label, np.float32)
 
         label = self.encode_labels(label)
-
-        complete_labels = label
 
         """if self.pseudo_labels_path is None:
             complete_labels = []
@@ -136,7 +135,7 @@ class cityscapesDataSet(data.Dataset):
         image -= self.mean
         image = image.transpose((2, 0, 1))
 
-        return image.copy(), complete_labels.copy(), name
+        return image.copy(), label.copy(), name
 
 
 if __name__ == '__main__':
