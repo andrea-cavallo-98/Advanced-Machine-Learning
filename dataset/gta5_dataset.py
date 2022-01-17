@@ -11,7 +11,8 @@ from PIL import Image
 
 
 class GTA5DataSet(data.Dataset):
-    def __init__(self, root, list_path, max_iters=None, crop_size=(321, 321), mean=(128, 128, 128), scale=True, mirror=True, ignore_label=255):
+    def __init__(self, root, list_path, max_iters=None, crop_size=(321, 321), augment=False,
+                          mean=(128, 128, 128), scale=True, mirror=True, ignore_label=255):
         self.root = root
         self.list_path = list_path
         self.crop_size = crop_size
@@ -19,6 +20,7 @@ class GTA5DataSet(data.Dataset):
         self.ignore_label = ignore_label
         self.mean = mean
         self.is_mirror = mirror
+        self.augment = augment
         # self.mean_bgr = np.array([104.00698793, 116.66876762, 122.67891434])
         self.img_ids = [i_id.strip() for i_id in open(list_path)]
         #if not max_iters==None:
@@ -52,6 +54,16 @@ class GTA5DataSet(data.Dataset):
         image = Image.open(datafiles["img"]).convert('RGB')
         label = Image.open(datafiles["label"])
         name = datafiles["name"]
+
+        if self.augment:
+            AUG_PROB = 0.5
+
+            if np.random.rand() < AUG_PROB:
+                hflip_t = torchvision.transforms.RandomHorizontalFlip(p=1)
+
+                image = hflip_t(image)
+                label = hflip_t(label)
+                #print("--- Image " + name + " was flipped!!")
 
         # resize
         image = image.resize(self.crop_size, Image.BICUBIC)
