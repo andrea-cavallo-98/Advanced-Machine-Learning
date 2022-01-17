@@ -15,7 +15,8 @@ import torch.cuda.amp as amp
 from dataset.cityscapes_dataset import cityscapesDataSet
 from torchvision import transforms
 
-IMG_MEAN = np.array((104.00698793, 116.66876762, 122.67891434), dtype=np.float32)
+# IMG_MEAN = np.array((104.00698793, 116.66876762, 122.67891434), dtype=np.float32)
+IMG_MEAN = np.array((73.158359210711552,82.908917542625858,72.392398761941593), dtype=np.float32)
 
 
 def val(args, model, dataloader):
@@ -139,8 +140,8 @@ def main(params):
     parser.add_argument('--checkpoint_step', type=int, default=10, help='How often to save checkpoints (epochs)')
     parser.add_argument('--validation_step', type=int, default=4, help='How often to perform validation (epochs)')
     parser.add_argument('--dataset', type=str, default="Cityscapes", help='Dataset you are using.')
-    parser.add_argument('--crop_height', type=int, default=720, help='Height of cropped/resized input image to network')
-    parser.add_argument('--crop_width', type=int, default=960, help='Width of cropped/resized input image to network')
+    parser.add_argument('--crop_height', type=int, default=512, help='Height of cropped/resized input image to network')
+    parser.add_argument('--crop_width', type=int, default=1024, help='Width of cropped/resized input image to network')
     parser.add_argument('--batch_size', type=int, default=32, help='Number of images in each batch')
     parser.add_argument('--context_path', type=str, default="resnet101",
                         help='The context path model you are using, resnet18, resnet101.')
@@ -167,7 +168,7 @@ def main(params):
 
     # Prepare Pytorch train/test Datasets
     train_dataset = cityscapesDataSet("Cityscapes", "Cityscapes/train.txt", augment=args.augment, mean=IMG_MEAN)
-    test_dataset = cityscapesDataSet("Cityscapes", "Cityscapes/val.txt", augment=False)
+    test_dataset = cityscapesDataSet("Cityscapes", "Cityscapes/val.txt", augment=False, mean=IMG_MEAN)
 
     # Check dataset sizes
     print('Train Dataset: {}'.format(len(train_dataset)))
@@ -215,13 +216,14 @@ if __name__ == '__main__':
         '--num_workers', '8',
         '--num_classes', '19',
         '--cuda', '0',
-        '--batch_size', '16',
+        '--batch_size', '8',
         '--save_model_path', './checkpoints_18_sgd',
         '--context_path', 'resnet101',  # set resnet18 or resnet101, only support resnet18 and resnet101
         '--optimizer', 'sgd',
         '--loss', 'crossentropy',
         '--augment', 'True',
         '--checkpoint_step', '4',
+        '--pretrained_model_path', './checkpoints_18_sgd/latest_dice_loss.pth'
 
     ]
     main(params)
