@@ -26,7 +26,7 @@ from dataset.gta5_dataset import GTA5DataSet
 from dataset.cityscapes_dataset import cityscapesDataSet
 from SSL import ssl
 
-IMG_MEAN = np.array((104.00698793, 116.66876762, 122.67891434), dtype=np.float32)
+IMG_MEAN = np.array((73.158359210711552, 82.908917542625858, 72.392398761941593), dtype=np.float32)
 
 MODEL = 'BiSeNet'
 BATCH_SIZE = 8
@@ -216,7 +216,7 @@ def main():
         model.load_state_dict(new_params)"""
         if args.pretrained_model_path is not None:
             print('load model from %s ...' % args.pretrained_model_path)
-            model.module.load_state_dict(torch.load(args.pretrained_model_path))
+            model.load_state_dict(torch.load(args.pretrained_model_path))
             print('Done!')
 
     cudnn.benchmark = True
@@ -406,7 +406,7 @@ def main():
         tq.close()
 
         # if e_epoch % args.ssl_every == 0 and e_epoch != 0:
-        if e_epoch % args.ssl_every == 0:
+        if (e_epoch + 1) % args.ssl_every == 0:
             ssl(model, 'pseudo_labels', args.num_classes, 1, args.num_workers)
             created_pseudo_labels = True
 
@@ -415,10 +415,10 @@ def main():
                 e_epoch, loss_seg_value1 / args.num_steps, loss_adv_target_value1 / args.num_steps,
                          loss_D_value1 / args.num_steps))
 
-        if (e_epoch % args.save_pred_every == 0 and e_epoch != 0) or e_epoch == args.num_epochs - 1:
+        if ((e_epoch + 1) % args.save_pred_every == 0 and e_epoch != 0) or e_epoch == args.num_epochs - 1:
             print('taking snapshot ...')
-            torch.save(model.module.state_dict(), osp.join(args.snapshot_dir, 'GTA5_' + str(i_iter) + '.pth'))
-            torch.save(model_D1.module.state_dict(), osp.join(args.snapshot_dir, 'GTA5_' + str(i_iter) + '_D1.pth'))
+            torch.save(model.state_dict(), osp.join(args.snapshot_dir, 'GTA5_' + str(i_iter) + '.pth'))
+            torch.save(model_D1.state_dict(), osp.join(args.snapshot_dir, 'GTA5_' + str(i_iter) + '_D1.pth'))
 
 
 if __name__ == '__main__':
