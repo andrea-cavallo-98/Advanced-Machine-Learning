@@ -8,6 +8,7 @@ from utils import reverse_one_hot, compute_global_accuracy, fast_hist, per_class
 import tqdm
 from dataset.cityscapes_dataset import cityscapesDataSet
 
+IMG_MEAN = np.array((73.158359210711552,82.908917542625858,72.392398761941593), dtype=np.float32)
 
 def eval(model, dataloader, args, csv_path):
     print('start test!')
@@ -68,7 +69,7 @@ def main(params):
     args = parser.parse_args(params)
 
     # Prepare Pytorch train/test Datasets
-    test_dataset = cityscapesDataSet("Cityscapes", "Cityscapes/val.txt", augment=False)
+    test_dataset = cityscapesDataSet("Cityscapes", "Cityscapes/val.txt", augment=False, mean=IMG_MEAN)
 
     # Check dataset sizes
     print('Test Dataset: {}'.format(len(test_dataset)))
