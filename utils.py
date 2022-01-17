@@ -142,7 +142,7 @@ def colour_code_segmentation(image, label_values):
 
 	image[image == 255] = 19 
 
-	x = colour_codes[image]
+	x = colour_codes[np.uint8(image)]
 
 	return x
 
