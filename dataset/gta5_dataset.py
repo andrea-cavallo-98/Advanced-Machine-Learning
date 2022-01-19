@@ -11,15 +11,11 @@ from PIL import Image
 
 
 class GTA5DataSet(data.Dataset):
-    def __init__(self, root, list_path, max_iters=None, crop_size=(321, 321), augment=False,
-                          mean=(128, 128, 128), scale=True, mirror=True, ignore_label=255):
+    def __init__(self, root, list_path, crop_size=(321, 321), augment=False, mean=(128, 128, 128)):
         self.root = root
         self.list_path = list_path
         self.crop_size = crop_size
-        self.scale = scale
-        self.ignore_label = ignore_label
         self.mean = mean
-        self.is_mirror = mirror
         self.augment = augment
         self.img_ids = [i_id.strip() for i_id in open(list_path)]
         self.files = []

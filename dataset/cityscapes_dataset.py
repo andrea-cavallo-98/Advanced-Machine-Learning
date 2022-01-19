@@ -43,20 +43,15 @@ def print_image_and_label(dataloader):
 
 class cityscapesDataSet(data.Dataset):
 
-    def __init__(self, root, list_path, augment=False, crop_size=(328, 328), mean=(128, 128, 128),
-                 scale=True, mirror=True, ignore_label=255, set='val', pseudo_labels_path=None):
+    def __init__(self, root, list_path, augment=False, crop_size=(328, 328), mean=(128, 128, 128), pseudo_labels_path=None):
         self.root = root
         self.list_path = list_path
         self.crop_size = crop_size
-        self.scale = scale
-        self.ignore_label = ignore_label
         self.mean = mean
-        self.is_mirror = mirror
         self.augment = augment
         self.pseudo_labels_path = pseudo_labels_path
         self.img_ids = [i_id.strip() for i_id in open(list_path)]
         self.files = []
-        self.set = set
 
         for name in self.img_ids:
             img_file = self.root + "/images/" + name.split("/")[1]
