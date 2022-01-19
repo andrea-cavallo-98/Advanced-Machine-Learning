@@ -23,15 +23,15 @@ from dataset.cityscapes_dataset import cityscapesDataSet
 IMG_MEAN = np.array((104.00698793, 116.66876762, 122.67891434), dtype=np.float32)
 
 MODEL = 'BiSeNet'
-BATCH_SIZE = 8
+BATCH_SIZE = 4
 ITER_SIZE = 1
 NUM_WORKERS = 4
 DATA_DIRECTORY = './GTA5'
 DATA_LIST_PATH = './GTA5/train.txt'
-INPUT_SIZE = '328,328'
+INPUT_SIZE = '1024, 512'
 DATA_DIRECTORY_TARGET = './Cityscapes'
 DATA_LIST_PATH_TARGET = './Cityscapes/train.txt'
-INPUT_SIZE_TARGET = '328,328'
+INPUT_SIZE_TARGET = '1024, 512'
 LEARNING_RATE = 2.5e-4
 MOMENTUM = 0.9
 NUM_CLASSES = 19
@@ -173,8 +173,8 @@ def main():
     ## Produce summary of models
     model.eval().cuda()
     model_D.eval().cuda()
-    summary(model, (BATCH_SIZE, 3, 328, 328))
-    summary(model_D, (BATCH_SIZE, 19, 328, 328))
+    summary(model, (BATCH_SIZE, 3, 1024, 512))
+    summary(model_D, (BATCH_SIZE, 19, 1024, 512))
 
     model.train()
     model.cuda(args.gpu)
@@ -203,8 +203,8 @@ def main():
                               lr=args.learning_rate, momentum=args.momentum, weight_decay=args.weight_decay)
         optimizer.zero_grad()
 
-        optimizer_D1 = optim.Adam(model_D.parameters(), lr=args.learning_rate_D, betas=(0.9, 0.99))
-        optimizer_D1.zero_grad()
+        optimizer_D = optim.Adam(model_D.parameters(), lr=args.learning_rate_D, betas=(0.9, 0.99))
+        optimizer_D.zero_grad()
 
         if args.gan == 'Vanilla':
             bce_loss = torch.nn.BCEWithLogitsLoss()
@@ -227,8 +227,8 @@ def main():
             optimizer.zero_grad()
             poly_lr_scheduler(optimizer, args.learning_rate, iter=epoch, max_iter=args.num_epochs)
 
-            optimizer_D1.zero_grad()
-            poly_lr_scheduler(optimizer_D1, args.learning_rate_D1, iter=epoch, max_iter=args.num_epochs)
+            optimizer_D.zero_grad()
+            poly_lr_scheduler(optimizer_D, args.learning_rate_D, iter=epoch, max_iter=args.num_epochs)
 
             for _ in range(args.iter_size):
 
@@ -306,7 +306,7 @@ def main():
                 loss_D_value += loss_D.data.cpu()
 
             optimizer.step()
-            optimizer_D1.step()
+            optimizer_D.step()
 
             tq.update(args.batch_size)
 
@@ -319,7 +319,7 @@ def main():
         if ((epoch + 1) % args.save_pred_every == 0 and epoch != 0) or epoch == args.num_epochs - 1:
             print('taking snapshot ...')
             torch.save(model.state_dict(), osp.join(args.snapshot_dir, 'GTA5_' + str(i_iter) + '.pth'))
-            torch.save(model_D.state_dict(), osp.join(args.snapshot_dir, 'GTA5_' + str(i_iter) + '_D1.pth'))
+            torch.save(model_D.state_dict(), osp.join(args.snapshot_dir, 'GTA5_' + str(i_iter) + '_D.pth'))
 
 
 if __name__ == '__main__':

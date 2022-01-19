@@ -21,7 +21,6 @@ IMG_MEAN = np.array((104.00698793, 116.66876762, 122.67891434), dtype=np.float32
 
 def val(args, model, dataloader):
     print('start val!')
-    # label_info = get_label_info(csv_path)
     with torch.no_grad():
 
         model.eval()
@@ -40,32 +39,20 @@ def val(args, model, dataloader):
 
             # get RGB label image
             label = label.squeeze()
-            # if args.loss == 'dice':
-            # label = reverse_one_hot(label)
             label = np.array(label.cpu())
 
             # compute per pixel accuracy
             precision = compute_global_accuracy(predict, label)
             hist += fast_hist(label.flatten(), predict.flatten(), args.num_classes)
 
-            # there is no need to transform the one-hot array to visual RGB array
-            # predict = colour_code_segmentation(np.array(predict), label_info)
-            # label = colour_code_segmentation(np.array(label), label_info)
             precision_record.append(precision)
 
         precision = np.mean(precision_record)
-        # miou = np.mean(per_class_iu(hist))
-        # miou_list = per_class_iu(hist)[:-1]
         miou_list = per_class_iu(hist)
-        # miou_dict, miou = cal_miou(miou_list, csv_path)
         miou = np.mean(miou_list)
         print('precision per pixel for test: %.3f' % precision)
         print('mIoU for validation: %.3f' % miou)
-        # miou_str = ''
-        # for key in miou_dict:
-        #     miou_str += '{}:{},\n'.format(key, miou_dict[key])
-        # print('mIoU for each class:')
-        # print(miou_str)
+
         return precision, miou
 
 
@@ -159,13 +146,6 @@ def main(params):
 
     args = parser.parse_args(params)
 
-    # create dataset and dataloader
-    # train_path = [os.path.join(args.data, 'train'), os.path.join(args.data, 'val')]
-    # train_label_path = [os.path.join(args.data, 'train_labels'), os.path.join(args.data, 'val_labels')]
-    # test_path = os.path.join(args.data, 'test')
-    # test_label_path = os.path.join(args.data, 'test_labels')
-    # csv_path = os.path.join(args.data, 'class_dict.csv')
-
     # Prepare Pytorch train/test Datasets
     train_dataset = cityscapesDataSet("Cityscapes", "Cityscapes/train.txt", augment=args.augment, mean=IMG_MEAN)
     test_dataset = cityscapesDataSet("Cityscapes", "Cityscapes/val.txt", augment=False, mean=IMG_MEAN)
@@ -204,8 +184,6 @@ def main(params):
 
     # train
     train(args, model, optimizer, train_dataloader, test_dataloader)
-
-    # val(args, model, dataloader_val, csv_path)
 
 
 if __name__ == '__main__':
