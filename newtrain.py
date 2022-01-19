@@ -25,7 +25,7 @@ from loss import CrossEntropy2d
 from dataset.gta5_dataset import GTA5DataSet
 from dataset.cityscapes_dataset import cityscapesDataSet
 
-IMG_MEAN = np.array((73.158359210711552, 82.908917542625858, 72.392398761941593), dtype=np.float32)
+IMG_MEAN = np.array((104.00698793, 116.66876762, 122.67891434), dtype=np.float32)
 
 MODEL = 'BiSeNet'
 BATCH_SIZE = 8

@@ -15,8 +15,8 @@ import torch.cuda.amp as amp
 from dataset.cityscapes_dataset import cityscapesDataSet
 from torchvision import transforms
 
-# IMG_MEAN = np.array((104.00698793, 116.66876762, 122.67891434), dtype=np.float32)
-IMG_MEAN = np.array((73.158359210711552,82.908917542625858,72.392398761941593), dtype=np.float32)
+
+IMG_MEAN = np.array((104.00698793, 116.66876762, 122.67891434), dtype=np.float32)
 
 
 def val(args, model, dataloader):

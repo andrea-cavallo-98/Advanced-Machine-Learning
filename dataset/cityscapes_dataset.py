@@ -43,7 +43,7 @@ def print_image_and_label(dataloader):
 
 class cityscapesDataSet(data.Dataset):
 
-    def __init__(self, root, list_path, augment=False, max_iters=None, crop_size=(328, 328), mean=(128, 128, 128),
+    def __init__(self, root, list_path, augment=False, crop_size=(328, 328), mean=(128, 128, 128),
                  scale=True, mirror=True, ignore_label=255, set='val', pseudo_labels_path=None):
         self.root = root
         self.list_path = list_path
@@ -54,15 +54,11 @@ class cityscapesDataSet(data.Dataset):
         self.is_mirror = mirror
         self.augment = augment
         self.pseudo_labels_path = pseudo_labels_path
-        # self.mean_bgr = np.array([104.00698793, 116.66876762, 122.67891434])
         self.img_ids = [i_id.strip() for i_id in open(list_path)]
-        # if not max_iters==None:
-        #    self.img_ids = self.img_ids * int(np.ceil(float(max_iters) / len(self.img_ids)))
         self.files = []
         self.set = set
-        # for split in ["train", "trainval", "val"]:
+
         for name in self.img_ids:
-            # img_file = osp.join(self.root, "leftImg8bit/%s/%s" % (self.set, name))
             img_file = self.root + "/images/" + name.split("/")[1]
             if pseudo_labels_path is None:
                 label = self.root + "/labels/" + name.split("/")[1].replace("leftImg8bit", "gtFine_labelIds")
@@ -105,11 +101,7 @@ class cityscapesDataSet(data.Dataset):
 
                 image = hflip_t(image)
                 label = hflip_t(label)
-                #print("--- Image " + name + " was flipped!!")
 
-
-        # print("Initial shape of label: ", np.array(label).shape)
-        # resize
         image = image.resize(self.crop_size, Image.BILINEAR)
         label = label.resize(self.crop_size, Image.NEAREST)
 
@@ -118,21 +110,8 @@ class cityscapesDataSet(data.Dataset):
 
         label = self.encode_labels(label)
 
-        """if self.pseudo_labels_path is None:
-            complete_labels = []
-            for c in range(19):
-                current_mask = 1 * (label == c)
-                complete_labels.append(current_mask)
-
-            complete_labels = np.array(complete_labels)
-        else:
-            complete_labels = label"""
-
-        # print(complete_labels.shape)
-
-        size = image.shape
-        image = image[:, :, ::-1]  # change to BGR
         image -= self.mean
+        image = image[:, :, ::-1]  # change to BGR
         image = image.transpose((2, 0, 1))
 
         return image.copy(), label.copy(), name

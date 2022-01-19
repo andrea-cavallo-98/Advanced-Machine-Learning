@@ -21,19 +21,9 @@ class GTA5DataSet(data.Dataset):
         self.mean = mean
         self.is_mirror = mirror
         self.augment = augment
-        # self.mean_bgr = np.array([104.00698793, 116.66876762, 122.67891434])
         self.img_ids = [i_id.strip() for i_id in open(list_path)]
-        #if not max_iters==None:
-        #    self.img_ids = self.img_ids * int(np.ceil(float(max_iters) / len(self.img_ids)))
         self.files = []
 
-        self.id_to_trainid = [[0, 255],[1, 255],[2, 255],[3, 255],[4, 255],[5, 255],
-        [6, 255],[7, 0],[8, 1],[9, 255],[10, 255],[11, 2],[12, 3],[13, 4],
-        [14, 255],[15, 255],[16, 255],[17, 5],[18, 255],[19, 6],[20, 7],[21, 8],[22, 9],
-        [23, 10],[24, 11],[25, 12],[26, 13],[27, 14],[28, 15],[29, 255],
-        [30, 255],[31, 16],[32, 17],[33, 18],[-1, 255]]
-
-        # for split in ["train", "trainval", "val"]:
         for name in self.img_ids:
             img_file = self.root + "/images/" + name
             label_file = self.root + "/labels/" + name
@@ -47,6 +37,17 @@ class GTA5DataSet(data.Dataset):
     def __len__(self):
         return len(self.files)
 
+    def encode_labels(self, mask):
+        mapping_20 = [[0, 255],[1, 255],[2, 255],[3, 255],[4, 255],[5, 255],
+        [6, 255],[7, 0],[8, 1],[9, 255],[10, 255],[11, 2],[12, 3],[13, 4],
+        [14, 255],[15, 255],[16, 255],[17, 5],[18, 255],[19, 6],[20, 7],[21, 8],[22, 9],
+        [23, 10],[24, 11],[25, 12],[26, 13],[27, 14],[28, 15],[29, 255],
+        [30, 255],[31, 16],[32, 17],[33, 18],[-1, 255]]
+
+        label_mask = np.zeros_like(mask)
+        for k in mapping_20:
+            label_mask[mask == k[0]] = k[1]
+        return label_mask
 
     def __getitem__(self, index):
         datafiles = self.files[index]
@@ -63,7 +64,6 @@ class GTA5DataSet(data.Dataset):
 
                 image = hflip_t(image)
                 label = hflip_t(label)
-                #print("--- Image " + name + " was flipped!!")
 
         # resize
         image = image.resize(self.crop_size, Image.BICUBIC)
@@ -71,18 +71,14 @@ class GTA5DataSet(data.Dataset):
 
         image = np.asarray(image, np.float32)
         label = np.asarray(label, np.float32)
+        
+        label = self.encode_labels(label)
 
-        # re-assign labels to match the format of Cityscapes
-        label_copy = 255 * np.ones(label.shape, dtype=np.float32)
-        for k in self.id_to_trainid:
-            label_copy[label == k[0]] = k[1]
-
-        size = image.shape
-        image = image[:, :, ::-1]  # change to BGR
         image -= self.mean
+        image = image[:, :, ::-1]  # change to BGR
         image = image.transpose((2, 0, 1))
 
-        return image.copy(), label_copy.copy()
+        return image.copy(), label.copy()
 
 
 if __name__ == '__main__':
