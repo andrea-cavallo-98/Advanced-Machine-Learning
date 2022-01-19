@@ -57,8 +57,8 @@ def main(params):
     parser = argparse.ArgumentParser()
     parser.add_argument('--checkpoint_path', type=str, default=None, required=True,
                         help='The path to the pretrained weights of model')
-    parser.add_argument('--crop_height', type=int, default=720, help='Height of cropped/resized input image to network')
-    parser.add_argument('--crop_width', type=int, default=960, help='Width of cropped/resized input image to network')
+    parser.add_argument('--crop_height', type=int, default=512, help='Height of cropped/resized input image to network')
+    parser.add_argument('--crop_width', type=int, default=1024, help='Width of cropped/resized input image to network')
     parser.add_argument('--data', type=str, default='/path/to/data', help='Path of training data')
     parser.add_argument('--batch_size', type=int, default=1, help='Number of images in each batch')
     parser.add_argument('--context_path', type=str, default="resnet101", help='The context path model you are using.')
@@ -69,13 +69,13 @@ def main(params):
     args = parser.parse_args(params)
 
     # Prepare Pytorch train/test Datasets
-    test_dataset = cityscapesDataSet("Cityscapes", "Cityscapes/val.txt", augment=False, mean=IMG_MEAN)
+    test_dataset = cityscapesDataSet("Cityscapes", "Cityscapes/val.txt", augment=False, crop_size=(args.crop_width, args.crop_height), mean=IMG_MEAN)
 
     # Check dataset sizes
     print('Test Dataset: {}'.format(len(test_dataset)))
 
     # Dataloaders iterate over pytorch datasets and transparently provide useful functions (e.g. parallelization and shuffling)
-    test_dataloader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4)
+    test_dataloader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=8)
 
     # build model
     os.environ['CUDA_VISIBLE_DEVICES'] = args.cuda

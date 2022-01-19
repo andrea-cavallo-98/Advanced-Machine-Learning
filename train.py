@@ -147,7 +147,7 @@ def main(params):
     args = parser.parse_args(params)
 
     # Prepare Pytorch train/test Datasets
-    train_dataset = cityscapesDataSet("Cityscapes", "Cityscapes/train.txt", augment=args.augment, mean=IMG_MEAN)
+    train_dataset = cityscapesDataSet("Cityscapes", "Cityscapes/train.txt", augment=args.augment, crop_size=(args.crop_width, args.crop_height), mean=IMG_MEAN)
     test_dataset = cityscapesDataSet("Cityscapes", "Cityscapes/val.txt", augment=False, mean=IMG_MEAN)
 
     # Check dataset sizes
@@ -155,9 +155,8 @@ def main(params):
     print('Test Dataset: {}'.format(len(test_dataset)))
 
     # Dataloaders iterate over pytorch datasets and transparently provide useful functions (e.g. parallelization and shuffling)
-    train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4,
-                                  drop_last=True)
-    test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=4)
+    train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=8, drop_last=True)
+    test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=8)
 
     # build model
     os.environ['CUDA_VISIBLE_DEVICES'] = args.cuda
@@ -194,14 +193,12 @@ if __name__ == '__main__':
         '--num_workers', '8',
         '--num_classes', '19',
         '--cuda', '0',
-        '--batch_size', '8',
+        '--batch_size', '4',
         '--save_model_path', './checkpoints_18_sgd',
         '--context_path', 'resnet101',  # set resnet18 or resnet101, only support resnet18 and resnet101
         '--optimizer', 'sgd',
         '--loss', 'crossentropy',
         '--augment', 'True',
-        '--checkpoint_step', '4',
-        '--pretrained_model_path', './checkpoints_18_sgd/latest_dice_loss.pth'
-
+        '--checkpoint_step', '4'
     ]
     main(params)
