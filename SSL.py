@@ -1,26 +1,21 @@
-from numpy.lib.npyio import _savez_compressed_dispatcher
-import torch
 import torch.nn as nn
 from torch.autograd import Variable
 from torch.utils import data
 from PIL import Image
 from tqdm import tqdm
-import json
-import os.path as osp
 import os
 import numpy as np
-from model.build_BiSeNet import BiSeNet
 from dataset.cityscapes_dataset import cityscapesDataSet
 
 IMG_MEAN = np.array((104.00698793, 116.66876762, 122.67891434), dtype=np.float32)
 
-def ssl(model, save_path, num_classes, batch_size, num_workers):
+def ssl(model, save_path, num_classes, batch_size, num_workers, crop_size):
     if not os.path.exists(save_path):
         os.makedirs(save_path)
 
     model.eval()
     model.cuda()
-    targetloader = data.DataLoader(cityscapesDataSet("Cityscapes", "Cityscapes/train.txt", mean=IMG_MEAN),
+    targetloader = data.DataLoader(cityscapesDataSet("Cityscapes", "Cityscapes/train.txt", mean=IMG_MEAN, crop_size=crop_size),
                                    batch_size=batch_size, shuffle=True, num_workers=num_workers,
                                    pin_memory=True)
 
@@ -48,10 +43,10 @@ def ssl(model, save_path, num_classes, batch_size, num_workers):
             continue
         x = np.sort(x)
         thres.append(x[np.int(np.round(len(x) * 0.5))])
-    print(thres)
+    #print(thres)
     thres = np.array(thres)
     thres[thres > 0.9] = 0.9
-    print(thres)
+    #print(thres)
     for index in range(len(targetloader)):
         name = image_name[index]
         label = predicted_label[index]

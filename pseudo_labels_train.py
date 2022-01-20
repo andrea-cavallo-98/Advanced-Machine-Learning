@@ -1,4 +1,6 @@
 import argparse
+
+from sklearn import cross_decomposition
 import torch
 import torch.nn as nn
 import torch.backends.cudnn as cudnn
@@ -41,7 +43,7 @@ NUM_EPOCHS = 50
 POWER = 0.9
 RANDOM_SEED = 1234
 SAVE_NUM_IMAGES = 2
-SAVE_PRED_EVERY = 5
+SAVE_pred_EVERY = 5
 SNAPSHOT_DIR = './snapshots/'
 WEIGHT_DECAY = 0.0005
 
@@ -115,7 +117,7 @@ def get_arguments():
                         help="Random seed to have reproducible results.")
     parser.add_argument("--save-num-images", type=int, default=SAVE_NUM_IMAGES,
                         help="How many images to save.")
-    parser.add_argument("--save-pred-every", type=int, default=SAVE_PRED_EVERY,
+    parser.add_argument("--save-pred-every", type=int, default=SAVE_pred_EVERY,
                         help="Save summaries and checkpoint every often.")
     parser.add_argument("--snapshot-dir", type=str, default=SNAPSHOT_DIR,
                         help="Where to save snapshots of the model.")
@@ -205,13 +207,13 @@ def main():
         trainloader_iter = enumerate(trainloader)
 
         if created_pseudo_labels:
-            targetloader = data.DataLoader(cityscapesDataSet(args.data_dir_target, args.data_list_target, mean=IMG_MEAN,
-                                                             pseudo_labels_path='pseudo_labels/'),
+            targetloader = data.DataLoader(cityscapesDataSet(args.data_dir_target, args.data_list_target, crop_size=input_size_target, 
+                                                            mean=IMG_MEAN, pseudo_labels_path='pseudo_labels/'),
                                            batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers,
                                            pin_memory=True)
         else:
             targetloader = data.DataLoader(
-                cityscapesDataSet(args.data_dir_target, args.data_list_target, mean=IMG_MEAN),
+                cityscapesDataSet(args.data_dir_target, args.data_list_target, crop_size=input_size_target, mean=IMG_MEAN),
                 batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers,
                 pin_memory=True)
 
@@ -263,8 +265,8 @@ def main():
                 images = Variable(images).cuda(args.gpu)
 
                 # with amp.autocast():
-                preD, _, _ = model(images)
-                loss1 = loss_calc(preD, labels, args.gpu)
+                pred, _, _ = model(images)
+                loss1 = loss_calc(pred, labels, args.gpu)
                 loss = loss1
 
                 # proper normalization
@@ -279,7 +281,7 @@ def main():
                     images, _, _ = batch
                     images = Variable(images).cuda(args.gpu)
 
-                    pred_target1, _, _ = model(images)
+                    pred_target, _, _ = model(images)
                     loss_seg_trg = 0
 
                 else:
@@ -287,10 +289,10 @@ def main():
                     images, labels, _ = batch
                     images = Variable(images).cuda(args.gpu)
 
-                    pred_target1, _, _ = model(images)
-                    loss_seg_trg = loss_calc(pred_target1, labels, args.gpu)
+                    pred_target, _, _ = model(images)
+                    loss_seg_trg = loss_calc(pred_target, labels, args.gpu)
 
-                D_out = model_D(F.softmax(pred_target1))
+                D_out = model_D(F.softmax(pred_target))
 
                 loss_adv_target = bce_loss(D_out,
                                             Variable(torch.FloatTensor(D_out.data.size()).fill_(source_label)).cuda(
@@ -308,9 +310,9 @@ def main():
                     param.requires_grad = True
 
                 # train with source
-                preD = preD.detach()
+                pred = pred.detach()
 
-                D_out = model_D(F.softmax(preD))
+                D_out = model_D(F.softmax(pred))
 
                 loss_D = bce_loss(D_out,
                                    Variable(torch.FloatTensor(D_out.data.size()).fill_(source_label)).cuda(args.gpu))
@@ -322,9 +324,9 @@ def main():
                 loss_D_value += loss_D.data.cpu()
 
                 # train with target
-                pred_target1 = pred_target1.detach()
+                pred_target = pred_target.detach()
 
-                D_out = model_D(F.softmax(pred_target1))
+                D_out = model_D(F.softmax(pred_target))
 
                 loss_D = bce_loss(D_out,
                                    Variable(torch.FloatTensor(D_out.data.size()).fill_(target_label)).cuda(args.gpu))
@@ -344,7 +346,7 @@ def main():
 
         # if epoch % args.ssl_every == 0 and epoch != 0:
         if (epoch + 1) % args.ssl_every == 0:
-            ssl(model, 'pseudo_labels', args.num_classes, 1, args.num_workers)
+            ssl(model, 'pseudo_labels', args.num_classes, 1, args.num_workers, crop_size=input_size_target)
             created_pseudo_labels = True
 
         print(
