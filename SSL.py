@@ -7,7 +7,7 @@ import os
 import numpy as np
 from dataset.cityscapes_dataset import cityscapesDataSet
 from model.build_BiSeNet import BiSeNet
-
+import torch
 
 IMG_MEAN = np.array((104.00698793, 116.66876762, 122.67891434), dtype=np.float32)
 
@@ -22,8 +22,10 @@ def ssl(model, save_path, num_classes, batch_size, num_workers, crop_size):
                                    pin_memory=True)
 
     predicted_label = np.zeros((len(targetloader), 512, 1024), dtype=np.uint8)
-    predicted_prob = np.zeros((len(targetloader), 512, 1024), dtype=np.uint8)
     image_name = []
+
+    classified_pixels = 0.0
+    fixed_thres = 0.9
 
     for index, batch in enumerate(tqdm(targetloader)):
         image, _, name = batch
@@ -33,29 +35,16 @@ def ssl(model, save_path, num_classes, batch_size, num_workers, crop_size):
         output = output.transpose(1, 2, 0)
 
         label, prob = np.argmax(output, axis=2), np.max(output, axis=2)
+        label[prob < fixed_thres] = 255
+        classified_pixels += sum(sum(prob >= fixed_thres)) / (1024 * 512)
         predicted_label[index] = np.uint8(label.copy())
-        predicted_prob[index] = np.uint8(prob.copy())
         image_name.append(name[0])
 
-    thres = []
-    for i in range(num_classes):
-        x = predicted_prob[predicted_label == i]
-        if len(x) == 0:
-            thres.append(0)
-            continue
-        x = np.sort(x)
-        thres.append(x[np.int(np.round(len(x) * 0.5))])
-    #print(thres)
-    thres = np.array(thres)
-    thres[thres > 0.9] = 0.9
-    #print(thres)
+    print("Percentage of classified pixels: ", classified_pixels / len(targetloader))
+
     for index in range(len(targetloader)):
         name = image_name[index]
-        label = predicted_label[index]
-        prob = predicted_prob[index]
-        for i in range(num_classes):
-            label[(prob < thres[i]) * (label == i)] = 255
-        output = np.asarray(label, dtype=np.uint8)
+        output = np.asarray(predicted_label[index], dtype=np.uint8)
         output = Image.fromarray(output)
         name = name.split("/")[1].replace("leftImg8bit", "gtFine_labelIds")
         output.save('%s/%s' % (save_path, name))
@@ -63,4 +52,5 @@ def ssl(model, save_path, num_classes, batch_size, num_workers, crop_size):
 
 if __name__ == '__main__':
   model = BiSeNet(19, 'resnet101')
+  model.load_state_dict(torch.load("/content/latest_dice_loss.pth"))
   ssl(model, 'pseudo_labels', 19, 1, 4, (1024, 512))
