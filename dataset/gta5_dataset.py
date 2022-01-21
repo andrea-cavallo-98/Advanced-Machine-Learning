@@ -1,11 +1,6 @@
-import os
-import os.path as osp
-import numpy as np
-import random
-import matplotlib.pyplot as plt
-import collections
-import torch
 import torchvision
+import numpy as np
+import matplotlib.pyplot as plt
 from torch.utils import data
 from PIL import Image
 
@@ -29,35 +24,19 @@ class GTA5DataSet(data.Dataset):
                 "name": name
             })
 
-
     def __len__(self):
         return len(self.files)
-
-    def encode_labels(self, mask):
-        mapping_20 = [[0, 255],[1, 255],[2, 255],[3, 255],[4, 255],[5, 255],
-        [6, 255],[7, 0],[8, 1],[9, 255],[10, 255],[11, 2],[12, 3],[13, 4],
-        [14, 255],[15, 255],[16, 255],[17, 5],[18, 255],[19, 6],[20, 7],[21, 8],[22, 9],
-        [23, 10],[24, 11],[25, 12],[26, 13],[27, 14],[28, 15],[29, 255],
-        [30, 255],[31, 16],[32, 17],[33, 18],[-1, 255]]
-
-        label_mask = np.zeros_like(mask)
-        for k in mapping_20:
-            label_mask[mask == k[0]] = k[1]
-        return label_mask
 
     def __getitem__(self, index):
         datafiles = self.files[index]
 
         image = Image.open(datafiles["img"]).convert('RGB')
         label = Image.open(datafiles["label"])
-        name = datafiles["name"]
 
         if self.augment:
             AUG_PROB = 0.5
-
             if np.random.rand() < AUG_PROB:
                 hflip_t = torchvision.transforms.RandomHorizontalFlip(p=1)
-
                 image = hflip_t(image)
                 label = hflip_t(label)
 
@@ -75,6 +54,22 @@ class GTA5DataSet(data.Dataset):
         image = image.transpose((2, 0, 1))
 
         return image.copy(), label.copy()
+
+    def encode_labels(self, mask):
+        """
+        Maps the initial 34 classes for labels into the 19 used in this work
+        @param mask: label on which the mapping is applied
+        @return: label with 19 different possible classes
+        """
+        mapping_19 = [[0, 255], [1, 255], [2, 255], [3, 255], [4, 255], [5, 255], [6, 255], [7, 0], [8, 1], [9, 255],
+                      [10, 255], [11, 2], [12, 3], [13, 4], [14, 255], [15, 255], [16, 255], [17, 5], [18, 255],
+                      [19, 6], [20, 7], [21, 8], [22, 9], [23, 10], [24, 11], [25, 12], [26, 13], [27, 14], [28, 15],
+                      [29, 255], [30, 255], [31, 16], [32, 17], [33, 18], [-1, 255]]
+
+        label_mask = np.zeros_like(mask)
+        for k in mapping_19:
+            label_mask[mask == k[0]] = k[1]
+        return label_mask
 
 
 if __name__ == '__main__':
