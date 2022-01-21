@@ -25,7 +25,7 @@ from SSL import ssl
 IMG_MEAN = np.array((104.00698793, 116.66876762, 122.67891434), dtype=np.float32)
 
 MODEL = 'BiSeNet'
-BATCH_SIZE = 8
+BATCH_SIZE = 4
 ITER_SIZE = 1
 NUM_WORKERS = 4
 DATA_DIRECTORY = './GTA5'
@@ -44,10 +44,11 @@ POWER = 0.9
 RANDOM_SEED = 1234
 SAVE_NUM_IMAGES = 2
 SAVE_pred_EVERY = 5
-SNAPSHOT_DIR = './snapshots/'
+SNAPSHOT_DIR = '/content/drive/MyDrive/DA_PL_ckp/'
 WEIGHT_DECAY = 0.0005
+INITIAL_EPOCH = 15
 
-SSL_EVERY = 5
+SSL_EVERY = 1
 
 LEARNING_RATE_D = 1e-4
 LAMBDA_ADV_TARGET = 0.001
@@ -55,7 +56,9 @@ GAN = 'Vanilla'
 
 TARGET = 'cityscapes'
 SET = 'train'
-
+DISCRIMINATOR_TYPE = 'lightweight'
+PRETRAINED_MODEL_PATH = "/content/snapshots/GTA5_124.pth"
+PRETRAINED_DISCRIMINATOR_PATH = "/content/snapshots/GTA5_124_D.pth"
 
 def get_arguments():
     """Parse all the arguments provided from the CLI.
@@ -129,11 +132,11 @@ def get_arguments():
                         help="choose adaptation set.")
     parser.add_argument("--gan", type=str, default=GAN,
                         help="choose the GAN objective.")
-    parser.add_argument("--discriminator", type=str, default='standard',
+    parser.add_argument("--discriminator", type=str, default=DISCRIMINATOR_TYPE,
                         help="choose the discriminator.")
-    parser.add_argument("--pretrained-model-path", type=str, default=None,
+    parser.add_argument("--pretrained-model-path", type=str, default=PRETRAINED_MODEL_PATH,
                         help="choose pretrained-model-path")
-    parser.add_argument("--pretrained-discriminator-path", type=str, default=None,
+    parser.add_argument("--pretrained-discriminator-path", type=str, default=PRETRAINED_DISCRIMINATOR_PATH,
                         help="choose pretrained-discriminator-path.")
     parser.add_argument("--ssl-every", type=str, default=SSL_EVERY,
                         help="choose when you want to use the SSL.")
@@ -185,20 +188,20 @@ def main():
         model_D = Lightweight_FCDiscriminator(num_classes=args.num_classes)
     if args.pretrained_discriminator_path is not None:
         print('load model from %s ...' % args.pretrained_discriminator_path)
-        model.module.load_state_dict(torch.load(args.pretrained_discriminator_path))
+        model_D.load_state_dict(torch.load(args.pretrained_discriminator_path))
         print('Done!')
-
-    model.train()
-    model.cuda(args.gpu)
-    model_D.train()
-    model_D.cuda(args.gpu)
 
     if not os.path.exists(args.snapshot_dir):
         os.makedirs(args.snapshot_dir)
     if not os.path.exists('pseudo_labels'):
         os.makedirs('pseudo_labels')
 
-    for epoch in range(args.num_epochs):
+    for epoch in range(INITIAL_EPOCH, args.num_epochs):
+
+        model.train()
+        model.cuda(args.gpu)
+        model_D.train()
+        model_D.cuda(args.gpu)
 
         trainloader = data.DataLoader(
             GTA5DataSet(args.data_dir, args.data_list, crop_size=input_size, mean=IMG_MEAN),
@@ -241,6 +244,7 @@ def main():
         loss_seg_value = 0
         loss_adv_target_value = 0
         loss_D_value = 0
+        loss_seg_trg_value = 0
 
         for i_iter in range(args.num_steps):
 
@@ -302,6 +306,7 @@ def main():
                 loss = loss / args.iter_size
                 loss.backward()
                 loss_adv_target_value += loss_adv_target.data.cpu()
+                loss_seg_trg_value += loss.data.cpu()
 
                 # train D
 
@@ -350,8 +355,8 @@ def main():
             created_pseudo_labels = True
 
         print(
-            'epoch = {0} loss_seg = {1:.3f}  loss_adv = {2:.3f},  loss_D = {3:.3f} '.format(
-                epoch, loss_seg_value / args.num_steps, loss_adv_target_value / args.num_steps,
+            'epoch = {0} loss_seg = {1:.3f} loss_seg_trg = {2:.3f}  loss_adv = {3:.3f},  loss_D = {4:.3f} '.format(
+                epoch, loss_seg_value / args.num_steps, loss_seg_trg_value / args.num_steps, loss_adv_target_value / args.num_steps,
                          loss_D_value / args.num_steps))
 
         if ((epoch + 1) % args.save_pred_every == 0 and epoch != 0) or epoch == args.num_epochs - 1:

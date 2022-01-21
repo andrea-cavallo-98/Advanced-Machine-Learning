@@ -6,6 +6,8 @@ from tqdm import tqdm
 import os
 import numpy as np
 from dataset.cityscapes_dataset import cityscapesDataSet
+from model.build_BiSeNet import BiSeNet
+
 
 IMG_MEAN = np.array((104.00698793, 116.66876762, 122.67891434), dtype=np.float32)
 
@@ -19,8 +21,8 @@ def ssl(model, save_path, num_classes, batch_size, num_workers, crop_size):
                                    batch_size=batch_size, shuffle=True, num_workers=num_workers,
                                    pin_memory=True)
 
-    predicted_label = np.zeros((len(targetloader), 512, 1024))
-    predicted_prob = np.zeros((len(targetloader), 512, 1024))
+    predicted_label = np.zeros((len(targetloader), 512, 1024), dtype=np.uint8)
+    predicted_prob = np.zeros((len(targetloader), 512, 1024), dtype=np.uint8)
     image_name = []
 
     for index, batch in enumerate(tqdm(targetloader)):
@@ -31,8 +33,8 @@ def ssl(model, save_path, num_classes, batch_size, num_workers, crop_size):
         output = output.transpose(1, 2, 0)
 
         label, prob = np.argmax(output, axis=2), np.max(output, axis=2)
-        predicted_label[index] = label.copy()
-        predicted_prob[index] = prob.copy()
+        predicted_label[index] = np.uint8(label.copy())
+        predicted_prob[index] = np.uint8(prob.copy())
         image_name.append(name[0])
 
     thres = []
@@ -60,4 +62,5 @@ def ssl(model, save_path, num_classes, batch_size, num_workers, crop_size):
 
 
 if __name__ == '__main__':
-    ssl(None, 'pseudo_labels', 20, 1, 4)
+  model = BiSeNet(19, 'resnet101')
+  ssl(model, 'pseudo_labels', 19, 1, 4, (1024, 512))
