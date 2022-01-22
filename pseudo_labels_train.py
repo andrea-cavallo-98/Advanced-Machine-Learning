@@ -44,9 +44,9 @@ POWER = 0.9
 RANDOM_SEED = 1234
 SAVE_NUM_IMAGES = 2
 SAVE_pred_EVERY = 5
-SNAPSHOT_DIR = '/content/drive/MyDrive/DA_PL_ckp/'
+SNAPSHOT_DIR = '/content/drive/MyDrive/DA_PL_ckp'
 WEIGHT_DECAY = 0.0005
-INITIAL_EPOCH = 15
+INITIAL_EPOCH = 0
 
 SSL_EVERY = 1
 
@@ -57,8 +57,8 @@ GAN = 'Vanilla'
 TARGET = 'cityscapes'
 SET = 'train'
 DISCRIMINATOR_TYPE = 'lightweight'
-PRETRAINED_MODEL_PATH = "/content/snapshots/GTA5_124.pth"
-PRETRAINED_DISCRIMINATOR_PATH = "/content/snapshots/GTA5_124_D.pth"
+PRETRAINED_MODEL_PATH = None
+PRETRAINED_DISCRIMINATOR_PATH = None
 
 def get_arguments():
     """Parse all the arguments provided from the CLI.
