@@ -56,6 +56,7 @@ def ssl(model, save_path, num_classes, batch_size, num_workers, crop_size):
         name = name.split("/")[1].replace("leftImg8bit", "gtFine_labelIds")
         output.save('%s/%s' % (save_path, name))
 
+        # display output and image
         image = np.asarray(images[index], np.float32)
         image = np.transpose(image.squeeze(), (1, 2, 0))
         image = IMG_MEAN + image.squeeze()
