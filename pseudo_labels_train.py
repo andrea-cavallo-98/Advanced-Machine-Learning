@@ -268,13 +268,13 @@ def main():
                 images, labels = batch
                 images = Variable(images).cuda(args.gpu)
 
-                # with amp.autocast():
-                pred, _, _ = model(images)
+                pred, pred1, pred2 = model(images)
                 loss1 = loss_calc(pred, labels, args.gpu)
-                loss = loss1
-
+                loss2 = loss_calc(pred1, labels, args.gpu)
+                loss3 = loss_calc(pred2, labels, args.gpu)
+                
                 # proper normalization
-                loss = loss / args.iter_size
+                loss = (loss1 + loss2 + loss3) / args.iter_size
                 loss.backward()
                 loss_seg_value += loss.data.cpu()
 
@@ -285,7 +285,7 @@ def main():
                     images, _, _ = batch
                     images = Variable(images).cuda(args.gpu)
 
-                    pred_target, _, _ = model(images)
+                    pred_target, pred_target1, pred_target2 = model(images)
                     loss_seg_trg = 0
 
                 else:
@@ -293,15 +293,23 @@ def main():
                     images, labels, _ = batch
                     images = Variable(images).cuda(args.gpu)
 
-                    pred_target, _, _ = model(images)
-                    loss_seg_trg = loss_calc(pred_target, labels, args.gpu)
+                    pred_target, pred_target1, pred_target2 = model(images)
+                    loss_seg_trg1 = loss_calc(pred_target, labels, args.gpu)
+                    loss_seg_trg2 = loss_calc(pred_target1, labels, args.gpu)
+                    loss_seg_trg3 = loss_calc(pred_target2, labels, args.gpu)
+                    loss_seg_trg = loss_seg_trg1 + loss_seg_trg2 + loss_seg_trg3
 
-                D_out = model_D(F.softmax(pred_target))
+                D_out1 = model_D(F.softmax(pred_target))
+                loss_adv_target1 = bce_loss(D_out1,
+                                            Variable(torch.FloatTensor(D_out1.data.size()).fill_(source_label)).cuda(args.gpu))
+                D_out2 = model_D(F.softmax(pred_target1))
+                loss_adv_target2 = bce_loss(D_out2,
+                                            Variable(torch.FloatTensor(D_out2.data.size()).fill_(source_label)).cuda(args.gpu))
+                D_out3 = model_D(F.softmax(pred_target2))
+                loss_adv_target3 = bce_loss(D_out3,
+                                            Variable(torch.FloatTensor(D_out3.data.size()).fill_(source_label)).cuda(args.gpu))
 
-                loss_adv_target = bce_loss(D_out,
-                                            Variable(torch.FloatTensor(D_out.data.size()).fill_(source_label)).cuda(
-                                                args.gpu))
-
+                loss_adv_target = loss_adv_target1 + loss_adv_target2 + loss_adv_target3
                 loss = loss_adv_target * args.lambda_adv_target + loss_seg_trg
                 loss = loss / args.iter_size
                 loss.backward()
