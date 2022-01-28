@@ -46,7 +46,7 @@ WEIGHT_DECAY = 0.0005
 DISCRIMINATOR = "standard" # standard or lightweight
 PRETRAINED_MODEL_PATH = None
 PRETRAINED_DISCRIMINATOR_PATH = None
-
+INITIAL_EPOCH = 0
 LEARNING_RATE_D = 1e-4
 GAN = 'Vanilla'
 
@@ -184,7 +184,7 @@ def main():
     if not os.path.exists(args.snapshot_dir):
         os.makedirs(args.snapshot_dir)
 
-    for epoch in range(args.num_epochs):
+    for epoch in range(INITIAL_EPOCH, args.num_epochs):
 
         trainloader = data.DataLoader(
             GTA5DataSet(args.data_dir, args.data_list, crop_size=input_size, augment = True, mean=IMG_MEAN),

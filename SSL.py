@@ -15,7 +15,7 @@ from utils import get_label_info, colour_code_segmentation
 IMG_MEAN = np.array((104.00698793, 116.66876762, 122.67891434), dtype=np.float32)
 
 
-def ssl(model, save_path, num_classes, batch_size, num_workers, crop_size):
+def ssl(model, save_path, num_classes, batch_size, num_workers, crop_size, fixed_threshold = True):
     if not os.path.exists(save_path):
         os.makedirs(save_path)
 
@@ -30,48 +30,93 @@ def ssl(model, save_path, num_classes, batch_size, num_workers, crop_size):
     image_name = []
     images = []
 
-    classified_pixels = 0.0
-    fixed_thres = 0.9
+    if fixed_threshold:
+      classified_pixels = 0.0
+      fixed_thres = 0.9
 
-    for index, batch in enumerate(tqdm(targetloader)):
-        image, _, name = batch
-        output = model(Variable(image).cuda())
-        output = nn.functional.softmax(output, dim=1)
-        output = nn.functional.upsample(output, (512, 1024), mode='bilinear', align_corners=True).cpu().data[0].numpy()
-        output = output.transpose(1, 2, 0)
+      for index, batch in enumerate(tqdm(targetloader)):
+          image, _, name = batch
+          output = model(Variable(image).cuda())
+          output = nn.functional.softmax(output, dim=1)
+          output = nn.functional.upsample(output, (512, 1024), mode='bilinear', align_corners=True).cpu().data[0].numpy()
+          output = output.transpose(1, 2, 0)
 
-        label, prob = np.argmax(output, axis=2), np.max(output, axis=2)
-        label[prob < fixed_thres] = 255
-        classified_pixels += sum(sum(prob >= fixed_thres)) / (1024 * 512)
-        predicted_label[index] = np.uint8(label.copy())
-        image_name.append(name[0])
-        images.append(image)
+          label, prob = np.argmax(output, axis=2), np.max(output, axis=2)
+          label[prob < fixed_thres] = 255
+          classified_pixels += sum(sum(prob >= fixed_thres)) / (1024 * 512)
+          predicted_label[index] = np.uint8(label.copy())
+          image_name.append(name[0])
+          images.append(image)
 
-    print("Percentage of classified pixels: ", classified_pixels / len(targetloader))
+      print("Percentage of classified pixels: ", classified_pixels / len(targetloader))
 
-    for index in range(len(targetloader)):
-        name = image_name[index]
-        output = np.asarray(predicted_label[index], dtype=np.uint8)
-        output = Image.fromarray(output)
-        name = name.split("/")[1].replace("leftImg8bit", "gtFine_labelIds")
-        output.save('%s/%s' % (save_path, name))
+      for index in range(len(targetloader)):
+          name = image_name[index]
+          output = np.asarray(predicted_label[index], dtype=np.uint8)
+          output = Image.fromarray(output)
+          name = name.split("/")[1].replace("leftImg8bit", "gtFine_labelIds")
+          output.save('%s/%s' % (save_path, name))
 
-        # display output and image
-        image = np.asarray(images[index], np.float32)
-        image = np.transpose(image.squeeze(), (1, 2, 0))
-        image = IMG_MEAN + image.squeeze()
-        image = image[:, :, ::-1]
-        image = cv2.resize(np.uint8(image), (960, 720))
-        image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
 
-        label_info = get_label_info()
-        output = np.asarray(output, np.float32)
-        output = colour_code_segmentation(np.array(output.squeeze()), label_info)
-        output = cv2.resize(np.uint8(output), (960, 720))
-        output = cv2.cvtColor(np.uint8(output), cv2.COLOR_RGB2BGR)
+    else: # variable threshold
+      predicted_prob = np.zeros((len(targetloader), 512, 1024), dtype=np.float32)
 
-        added_image = cv2.addWeighted(image, 0.4, output, 0.5, 0)
-        cv2.imwrite('demo_images/' + name.split("/")[-1], added_image)
+      for index, batch in enumerate(tqdm(targetloader)):
+          image, _, name = batch
+          output = model(Variable(image).cuda())
+          output = nn.functional.softmax(output, dim=1)
+          output = nn.functional.upsample(output, (512, 1024), mode='bilinear', align_corners=True).cpu().data[0].numpy()
+          output = output.transpose(1, 2, 0)
+
+          label, prob = np.argmax(output, axis=2), np.max(output, axis=2)
+          predicted_label[index] = np.uint8(label.copy())
+          predicted_prob[index] = np.float32(prob.copy())
+          image_name.append(name[0])
+          images.append(image)
+
+      # Compute threshold
+      thres = []
+      for i in range(num_classes):
+          x = predicted_prob[predicted_label == i]
+          if len(x) == 0:
+              thres.append(0)
+              continue
+          x = np.sort(x)
+          thres.append(x[np.int(np.round(len(x) * 0.5))])
+      #print(thres)
+      thres = np.array(thres)
+      thres[thres > 0.9] = 0.9
+      #print(thres)
+
+      for index in range(len(targetloader)):
+          name = image_name[index]
+          label = predicted_label[index]
+          prob = predicted_prob[index]
+          for i in range(num_classes):
+              label[(prob < thres[i]) * (label == i)] = 255
+          output = np.asarray(label, dtype=np.uint8)
+          output = Image.fromarray(output)
+          name = name.split("/")[1].replace("leftImg8bit", "gtFine_labelIds")
+          output.save('%s/%s' % (save_path, name))
+
+          """
+          # display output and image
+          image = np.asarray(images[index], np.float32)
+          image = np.transpose(image.squeeze(), (1, 2, 0))
+          image = IMG_MEAN + image.squeeze()
+          image = image[:, :, ::-1]
+          image = cv2.resize(np.uint8(image), (960, 720))
+          image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+
+          label_info = get_label_info()
+          output = np.asarray(output, np.float32)
+          output = colour_code_segmentation(np.array(output.squeeze()), label_info)
+          output = cv2.resize(np.uint8(output), (960, 720))
+          output = cv2.cvtColor(np.uint8(output), cv2.COLOR_RGB2BGR)
+
+          added_image = cv2.addWeighted(image, 0.4, output, 0.5, 0)
+          cv2.imwrite('demo_images/' + name.split("/")[-1], added_image)
+          """
 
 
 if __name__ == '__main__':

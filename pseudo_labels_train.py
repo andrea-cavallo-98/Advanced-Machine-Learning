@@ -47,6 +47,7 @@ SAVE_pred_EVERY = 5
 SNAPSHOT_DIR = '/content/drive/MyDrive/DA_PL_ckp'
 WEIGHT_DECAY = 0.0005
 INITIAL_EPOCH = 0
+FIXED_THRESHOLD = True # True for fixed threshold, False for variable threshold
 
 SSL_EVERY = 1
 
@@ -359,7 +360,7 @@ def main():
 
         # if epoch % args.ssl_every == 0 and epoch != 0:
         if (epoch + 1) % args.ssl_every == 0:
-            ssl(model, 'pseudo_labels', args.num_classes, 1, args.num_workers, crop_size=input_size_target)
+            ssl(model, 'pseudo_labels', args.num_classes, 1, args.num_workers, crop_size=input_size_target, fixed_threshold=FIXED_THRESHOLD)
             created_pseudo_labels = True
 
         print(
