@@ -304,16 +304,13 @@ def main():
 
                 D_out1 = model_D(F.softmax(pred_target))
                 loss_adv_target1 = bce_loss(D_out1,
-                                            Variable(torch.FloatTensor(D_out1.data.size()).fill_(source_label)).cuda(
-                                                args.gpu))
+                                            Variable(torch.FloatTensor(D_out1.data.size()).fill_(source_label)).cuda(args.gpu))
                 D_out2 = model_D(F.softmax(pred_target1))
                 loss_adv_target2 = bce_loss(D_out2,
-                                            Variable(torch.FloatTensor(D_out2.data.size()).fill_(source_label)).cuda(
-                                                args.gpu))
+                                            Variable(torch.FloatTensor(D_out2.data.size()).fill_(source_label)).cuda(args.gpu))
                 D_out3 = model_D(F.softmax(pred_target2))
                 loss_adv_target3 = bce_loss(D_out3,
-                                            Variable(torch.FloatTensor(D_out3.data.size()).fill_(source_label)).cuda(
-                                                args.gpu))
+                                            Variable(torch.FloatTensor(D_out3.data.size()).fill_(source_label)).cuda(args.gpu))
 
                 loss_adv_target = loss_adv_target1 + loss_adv_target2 + loss_adv_target3
                 loss = loss_adv_target * args.lambda_adv_target + loss_seg_trg
@@ -365,8 +362,7 @@ def main():
 
         # if epoch % args.ssl_every == 0 and epoch != 0:
         if (epoch + 1) % args.ssl_every == 0:
-            ssl(model, 'pseudo_labels', args.num_classes, 1, args.num_workers, crop_size=input_size_target,
-                fixed_threshold=FIXED_THRESHOLD)
+            ssl(model, 'pseudo_labels', args.num_classes, 1, args.num_workers, crop_size=input_size_target, fixed_threshold=FIXED_THRESHOLD)
             created_pseudo_labels = True
 
         print(

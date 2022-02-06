@@ -49,7 +49,7 @@ class cityscapesDataSet(data.Dataset):
 
         for name in self.img_ids:
             img_file = self.root + "/images/" + name.split("/")[1]
-            if pseudo_labels_path is None:
+            if self.pseudo_labels_path is None:
                 label = self.root + "/labels/" + name.split("/")[1].replace("leftImg8bit", "gtFine_labelIds")
             else:
                 label = pseudo_labels_path + name.split("/")[1].replace("leftImg8bit", "gtFine_labelIds")
@@ -82,7 +82,8 @@ class cityscapesDataSet(data.Dataset):
         image = np.asarray(image, np.float32)
         label = np.asarray(label, np.float32)
 
-        label = self.encode_labels(label)
+        if self.pseudo_labels_path is None: # don't encode labels if they are already encoded
+          label = self.encode_labels(label)
 
         image -= self.mean
         image = image[:, :, ::-1]  # change to BGR
