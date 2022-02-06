@@ -14,7 +14,6 @@ import os.path as osp
 from tqdm import tqdm
 from utils import poly_lr_scheduler
 
-
 from model.build_BiSeNet import BiSeNet
 from model.discriminator import FCDiscriminator, Lightweight_FCDiscriminator
 from loss import CrossEntropy2d
@@ -46,7 +45,8 @@ SAVE_NUM_IMAGES = 2
 SAVE_pred_EVERY = 5
 SNAPSHOT_DIR = '/content/drive/MyDrive/DA_PL_ckp'
 WEIGHT_DECAY = 0.0005
-INITIAL_EPOCH = 0
+INITIAL_EPOCH = 30
+FIXED_THRESHOLD = False  # True for fixed threshold, False for variable threshold
 
 SSL_EVERY = 1
 
@@ -57,8 +57,9 @@ GAN = 'Vanilla'
 TARGET = 'cityscapes'
 SET = 'train'
 DISCRIMINATOR_TYPE = 'lightweight'
-PRETRAINED_MODEL_PATH = None
-PRETRAINED_DISCRIMINATOR_PATH = None
+PRETRAINED_MODEL_PATH = 'GTA5_124.pth'
+PRETRAINED_DISCRIMINATOR_PATH = 'GTA5_124_D.pth'
+
 
 def get_arguments():
     """Parse all the arguments provided from the CLI.
@@ -210,13 +211,15 @@ def main():
         trainloader_iter = enumerate(trainloader)
 
         if created_pseudo_labels:
-            targetloader = data.DataLoader(cityscapesDataSet(args.data_dir_target, args.data_list_target, crop_size=input_size_target, 
-                                                            mean=IMG_MEAN, pseudo_labels_path='pseudo_labels/'),
-                                           batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers,
-                                           pin_memory=True)
+            targetloader = data.DataLoader(
+                cityscapesDataSet(args.data_dir_target, args.data_list_target, crop_size=input_size_target,
+                                  mean=IMG_MEAN, pseudo_labels_path='pseudo_labels/'),
+                batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers,
+                pin_memory=True)
         else:
             targetloader = data.DataLoader(
-                cityscapesDataSet(args.data_dir_target, args.data_list_target, crop_size=input_size_target, mean=IMG_MEAN),
+                cityscapesDataSet(args.data_dir_target, args.data_list_target, crop_size=input_size_target,
+                                  mean=IMG_MEAN),
                 batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers,
                 pin_memory=True)
 
@@ -268,13 +271,13 @@ def main():
                 images, labels = batch
                 images = Variable(images).cuda(args.gpu)
 
-                # with amp.autocast():
-                pred, _, _ = model(images)
+                pred, pred1, pred2 = model(images)
                 loss1 = loss_calc(pred, labels, args.gpu)
-                loss = loss1
+                loss2 = loss_calc(pred1, labels, args.gpu)
+                loss3 = loss_calc(pred2, labels, args.gpu)
 
                 # proper normalization
-                loss = loss / args.iter_size
+                loss = (loss1 + loss2 + loss3) / args.iter_size
                 loss.backward()
                 loss_seg_value += loss.data.cpu()
 
@@ -285,7 +288,7 @@ def main():
                     images, _, _ = batch
                     images = Variable(images).cuda(args.gpu)
 
-                    pred_target, _, _ = model(images)
+                    pred_target, pred_target1, pred_target2 = model(images)
                     loss_seg_trg = 0
 
                 else:
@@ -293,15 +296,26 @@ def main():
                     images, labels, _ = batch
                     images = Variable(images).cuda(args.gpu)
 
-                    pred_target, _, _ = model(images)
-                    loss_seg_trg = loss_calc(pred_target, labels, args.gpu)
+                    pred_target, pred_target1, pred_target2 = model(images)
+                    loss_seg_trg1 = loss_calc(pred_target, labels, args.gpu)
+                    loss_seg_trg2 = loss_calc(pred_target1, labels, args.gpu)
+                    loss_seg_trg3 = loss_calc(pred_target2, labels, args.gpu)
+                    loss_seg_trg = loss_seg_trg1 + loss_seg_trg2 + loss_seg_trg3
 
-                D_out = model_D(F.softmax(pred_target))
-
-                loss_adv_target = bce_loss(D_out,
-                                            Variable(torch.FloatTensor(D_out.data.size()).fill_(source_label)).cuda(
+                D_out1 = model_D(F.softmax(pred_target))
+                loss_adv_target1 = bce_loss(D_out1,
+                                            Variable(torch.FloatTensor(D_out1.data.size()).fill_(source_label)).cuda(
+                                                args.gpu))
+                D_out2 = model_D(F.softmax(pred_target1))
+                loss_adv_target2 = bce_loss(D_out2,
+                                            Variable(torch.FloatTensor(D_out2.data.size()).fill_(source_label)).cuda(
+                                                args.gpu))
+                D_out3 = model_D(F.softmax(pred_target2))
+                loss_adv_target3 = bce_loss(D_out3,
+                                            Variable(torch.FloatTensor(D_out3.data.size()).fill_(source_label)).cuda(
                                                 args.gpu))
 
+                loss_adv_target = loss_adv_target1 + loss_adv_target2 + loss_adv_target3
                 loss = loss_adv_target * args.lambda_adv_target + loss_seg_trg
                 loss = loss / args.iter_size
                 loss.backward()
@@ -320,7 +334,7 @@ def main():
                 D_out = model_D(F.softmax(pred))
 
                 loss_D = bce_loss(D_out,
-                                   Variable(torch.FloatTensor(D_out.data.size()).fill_(source_label)).cuda(args.gpu))
+                                  Variable(torch.FloatTensor(D_out.data.size()).fill_(source_label)).cuda(args.gpu))
 
                 loss_D = loss_D / args.iter_size / 2
 
@@ -334,7 +348,7 @@ def main():
                 D_out = model_D(F.softmax(pred_target))
 
                 loss_D = bce_loss(D_out,
-                                   Variable(torch.FloatTensor(D_out.data.size()).fill_(target_label)).cuda(args.gpu))
+                                  Variable(torch.FloatTensor(D_out.data.size()).fill_(target_label)).cuda(args.gpu))
 
                 loss_D = loss_D / args.iter_size / 2
 
@@ -351,13 +365,15 @@ def main():
 
         # if epoch % args.ssl_every == 0 and epoch != 0:
         if (epoch + 1) % args.ssl_every == 0:
-            ssl(model, 'pseudo_labels', args.num_classes, 1, args.num_workers, crop_size=input_size_target)
+            ssl(model, 'pseudo_labels', args.num_classes, 1, args.num_workers, crop_size=input_size_target,
+                fixed_threshold=FIXED_THRESHOLD)
             created_pseudo_labels = True
 
         print(
             'epoch = {0} loss_seg = {1:.3f} loss_seg_trg = {2:.3f}  loss_adv = {3:.3f},  loss_D = {4:.3f} '.format(
-                epoch, loss_seg_value / args.num_steps, loss_seg_trg_value / args.num_steps, loss_adv_target_value / args.num_steps,
-                         loss_D_value / args.num_steps))
+                epoch, loss_seg_value / args.num_steps, loss_seg_trg_value / args.num_steps,
+                       loss_adv_target_value / args.num_steps,
+                       loss_D_value / args.num_steps))
 
         if ((epoch + 1) % args.save_pred_every == 0 and epoch != 0) or epoch == args.num_epochs - 1:
             print('taking snapshot ...')

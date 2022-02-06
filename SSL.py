@@ -15,12 +15,12 @@ from utils import get_label_info, colour_code_segmentation
 IMG_MEAN = np.array((104.00698793, 116.66876762, 122.67891434), dtype=np.float32)
 
 
-def ssl(model, save_path, num_classes, batch_size, num_workers, crop_size):
+def ssl(model, save_path, num_classes, batch_size, num_workers, gpu, crop_size):
     if not os.path.exists(save_path):
         os.makedirs(save_path)
 
     model.eval()
-    model.cuda()
+    model.cuda(gpu)
     targetloader = data.DataLoader(
         cityscapesDataSet("Cityscapes", "Cityscapes/train.txt", mean=IMG_MEAN, crop_size=crop_size),
         batch_size=batch_size, shuffle=True, num_workers=num_workers,
