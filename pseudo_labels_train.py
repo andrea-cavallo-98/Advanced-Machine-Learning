@@ -304,7 +304,6 @@ def main():
                 loss_adv_target = bce_loss(D_out,
                                             Variable(torch.FloatTensor(D_out.data.size()).fill_(source_label)).cuda(args.gpu))
                 
-                loss_adv_target = loss_adv_target
                 loss = loss_adv_target * args.lambda_adv_target + loss_seg_trg
                 loss = loss / args.iter_size
                 loss.backward()
