@@ -260,22 +260,16 @@ def main():
                 images, _, _ = batch
                 images = Variable(images).cuda(args.gpu)
 
-                pred_target, pred_target1, pred_target2 = model(images)
+                pred_target, _, _ = model(images)
 
-                D_out1 = model_D(F.softmax(pred_target))
-                D_out2 = model_D(F.softmax(pred_target1))
-                D_out3 = model_D(F.softmax(pred_target2))
-                loss_adv_target1 = bce_loss(D_out1, 
-                                  Variable(torch.FloatTensor(D_out1.data.size()).fill_(source_label)).cuda(args.gpu))
-                loss_adv_target2 = bce_loss(D_out2, 
-                                  Variable(torch.FloatTensor(D_out2.data.size()).fill_(source_label)).cuda(args.gpu))
-                loss_adv_target3 = bce_loss(D_out3, 
-                                  Variable(torch.FloatTensor(D_out3.data.size()).fill_(source_label)).cuda(args.gpu))
+                D_out = model_D(F.softmax(pred_target))
+                loss_adv_target = bce_loss(D_out, 
+                                  Variable(torch.FloatTensor(D_out.data.size()).fill_(source_label)).cuda(args.gpu))
 
-                loss = loss_adv_target1 + loss_adv_target2 + loss_adv_target3
+                loss = loss_adv_target
                 loss = loss / args.iter_size
                 loss.backward()
-                loss_adv_target_value += loss_adv_target1.data.cpu()
+                loss_adv_target_value += loss_adv_target.data.cpu()
 
                 # train D
 
