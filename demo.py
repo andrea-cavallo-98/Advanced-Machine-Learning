@@ -29,7 +29,7 @@ def print_ground_truth(image_path, label_path):
     label_info = get_label_info()
 
     label = Image.open(label_path)
-    label = label.resize((328, 328), Image.NEAREST)
+    label = label.resize((1024, 512), Image.NEAREST)
     
     label = np.asarray(label, np.float32)
     label = encode_labels(None, label)
@@ -40,13 +40,13 @@ def print_ground_truth(image_path, label_path):
     image = cv2.resize(np.uint8(image), (960, 720), interpolation=cv2.INTER_LINEAR)
     label = cv2.cvtColor(np.uint8(label), cv2.COLOR_RGB2BGR)
     added_image = cv2.addWeighted(image,0.4,label,0.5,0)
-    cv2.imwrite('demo_images/' + image_path.split("/")[-1], added_image)
+    cv2.imwrite('demo_images/' + "GT_" + image_path.split("/")[-1], added_image)
 
 
 def predict_on_image(model, data):
     # pre-processing on image
     image = Image.open(data).convert('RGB')
-    image = image.resize((328, 328), Image.BILINEAR)
+    image = image.resize((1024, 512), Image.BILINEAR)
     image = np.asarray(image, np.float32)
     size = image.shape
     image = image[:, :, ::-1]  # change to BGR
@@ -66,7 +66,7 @@ def predict_on_image(model, data):
     image = cv2.resize(np.uint8(image), (960, 720))
     predict = cv2.cvtColor(np.uint8(predict), cv2.COLOR_RGB2BGR)
     added_image = cv2.addWeighted(image,0.4,predict,0.5,0)
-    cv2.imwrite('demo_images/aachen.png', added_image)
+    cv2.imwrite('demo_images/' + "baseline_" + data.split("/")[-1], added_image)
 
 def main():
   # build model
@@ -75,13 +75,25 @@ def main():
   if torch.cuda.is_available():
       model = torch.nn.DataParallel(model).cuda()
 
-  # load pretrained model if exists
-  print('load model from %s ...' % './checkpoints_18_sgd/latest_dice_loss.pth')
-  model.module.load_state_dict(torch.load('./checkpoints_18_sgd/latest_dice_loss.pth'))
-  print('Done!')
+  model.module.load_state_dict(torch.load('/content/latest_dice_loss.pth'))
+  
+  images = [
+    "Cityscapes/images/frankfurt_000000_013240_leftImg8bit.png",
+    "Cityscapes/images/lindau_000041_000019_leftImg8bit.png",
+    "Cityscapes/images/munster_000026_000019_leftImg8bit.png"
+  ]  
 
-  #predict_on_image(model, 'Cityscapes/images/aachen_000001_000019_leftImg8bit.png')
-  predict_on_image(model, 'Cityscapes/images/bremen_000253_000019_leftImg8bit.png')
+  labels = [
+    "Cityscapes/labels/frankfurt_000000_013240_gtFine_labelIds.png",
+    "Cityscapes/labels/lindau_000041_000019_gtFine_labelIds.png",
+    "Cityscapes/labels/munster_000026_000019_gtFine_labelIds.png"
+  ]
+
+  for image, label in zip(images, labels):
+    print_ground_truth(image, label)
+
+  #for image in images:
+  #  predict_on_image(model, image)
 
 if __name__ == '__main__':
   main()
