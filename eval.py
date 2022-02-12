@@ -7,8 +7,26 @@ import numpy as np
 from utils import reverse_one_hot, compute_global_accuracy, fast_hist, per_class_iu, cal_miou
 import tqdm
 from dataset.cityscapes_dataset import cityscapesDataSet
+from matplotlib import pyplot as plt
 
 IMG_MEAN = np.array((104.00698793, 116.66876762, 122.67891434), dtype=np.float32)
+
+labels = ["road","sidewalk", "building","wall","fence","pole","light",
+    "sign","vegetation","terrain","sky","person","rider","car","truck",
+    "bus","train","motocycle","bicycle"]
+
+def save_plot_per_class(hist):
+  precision = np.diag(hist) / (hist.sum(0) + 1e-5)
+  recall = np.diag(hist) / (hist.sum(1) + 1e-5)
+
+  plt.xticks(range(19), labels, rotation=45)
+  plt.plot(precision, '-o')
+  plt.plot(recall, '-o')
+  plt.plot((np.diag(hist)) / (hist.sum(1) + hist.sum(0) - np.diag(hist) + 1e-5), '-o')
+  plt.legend(["Precision", "Recall", "Per-class IoU"])
+  plt.gcf().subplots_adjust(bottom=0.2)
+  plt.savefig("prec_DA_08")
+
 
 def eval(model, dataloader, args, csv_path):
     print('start test!')
@@ -37,6 +55,8 @@ def eval(model, dataloader, args, csv_path):
             precision = compute_global_accuracy(predict, label)
             hist += fast_hist(label.flatten(), predict.flatten(), args.num_classes)
             precision_record.append(precision)
+        
+        save_plot_per_class(hist)
         precision = np.mean(precision_record)
         #miou_list = per_class_iu(hist)[:-1]
         miou_list = per_class_iu(hist)
@@ -96,7 +116,7 @@ def main(params):
 
 if __name__ == '__main__':
     params = [
-        '--checkpoint_path', './checkpoints_18_sgd/latest_dice_loss.pth',
+        '--checkpoint_path', '/content/GTA5_124.pth',
         '--data', '/path/to/data',
         '--cuda', '0',
         '--context_path', 'resnet101',
