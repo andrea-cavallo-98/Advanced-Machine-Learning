@@ -1,6 +1,6 @@
 # Advanced-Machine-Learning
 
-This repository contains the code for the project `Real-time domain adaptation for semantic segmentation`, relative to the course `Advanced Machine Learning`.
+This repository contains the code for the project `Real-time domain adaptation for semantic segmentation`, relative to the course `Advanced Machine Learning`. The repo contains also the [assignment](reports/Assignment.pdf) (with tables filled with the values obtained) and a report which elaborates on methods, results and conclusions.
 
 ## Goals
 * The first goal of the project is to implement and test BiSeNet, a deep network for semantic segmentation, on Cityscapes. The description of the network is in the folder [`model`](model), while the file to train it on the labeled dataset is [`train.py`](train.py).
