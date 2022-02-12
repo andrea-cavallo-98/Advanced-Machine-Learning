@@ -10,12 +10,12 @@ This repository contains the code for the project `Real-time domain adaptation f
 ## Results
 Some predictions for the different models are reported below:
 <div>
-<img src="images\ground_truth\GT_munster_000026_000019_leftImg8bit.png" alt="drawing" width="200"/>
-<img src="images\predictions\baseline_munster_000026_000019_leftImg8bit.png" alt="drawing" width="200"/>
-<img src="images\predictions\DA_standard_munster_000026_000019_leftImg8bit.png" alt="drawing" width="200"/>
-<img src="images\predictions\DA_light_munster_000026_000019_leftImg8bit.png" alt="drawing" width="200"/>
-<img src="images\predictions\DA_PL_fixthr_munster_000026_000019_leftImg8bit.png" alt="drawing" width="200"/>
-<img src="images\predictions\DA_PL_varthr_munster_000026_000019_leftImg8bit.png" alt="drawing" width="200"/>
+<img src="images\ground_truth\GT_munster_000026_000019_leftImg8bit.png" alt="drawing" width="300"/>
+<img src="images\predictions\baseline_munster_000026_000019_leftImg8bit.png" alt="drawing" width="300"/>
+<img src="images\predictions\DA_standard_munster_000026_000019_leftImg8bit.png" alt="drawing" width="300"/>
+<img src="images\predictions\DA_light_munster_000026_000019_leftImg8bit.png" alt="drawing" width="300"/>
+<img src="images\predictions\DA_PL_fixthr_munster_000026_000019_leftImg8bit.png" alt="drawing" width="300"/>
+<img src="images\predictions\DA_PL_varthr_munster_000026_000019_leftImg8bit.png" alt="drawing" width="300"/>
 </div>
 The images correspond, in order, to: 
 <ul>
