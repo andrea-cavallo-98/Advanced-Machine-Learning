@@ -46,7 +46,6 @@ class AttentionRefinementModule(torch.nn.Module):
         assert self.in_channels == x.size(1), 'in_channels and out_channels should all be {}'.format(x.size(1))
         x = self.conv(x)
         x = self.sigmoid(self.bn(x))
-        #x = self.sigmoid(x)
         # channels of input and x should be same
         x = torch.mul(input, x)
         return x
@@ -55,9 +54,6 @@ class AttentionRefinementModule(torch.nn.Module):
 class FeatureFusionModule(torch.nn.Module):
     def __init__(self, num_classes, in_channels):
         super().__init__()
-        # self.in_channels = input_1.channels + input_2.channels
-        # resnet101 3328 = 256(from spatial path) + 1024(from context path) + 2048(from context path)
-        # resnet18  1024 = 256(from spatial path) + 256(from context path) + 512(from context path)
         self.in_channels = in_channels
 
         self.convblock = ConvBlock(in_channels=self.in_channels, out_channels=num_classes, stride=1)
@@ -174,18 +170,9 @@ if __name__ == '__main__':
     import os
     os.environ['CUDA_VISIBLE_DEVICES'] = '0'
     model = BiSeNet(32, 'resnet18')
-    # model = nn.DataParallel(model)
 
     model = model.cuda()
     x = torch.rand(2, 3, 256, 256)
     record = model.parameters()
-    # for key, params in model.named_parameters():
-    #     if 'bn' in key:
-    #         params.requires_grad = False
-    from utils import group_weight
-    # params_list = []
-    # for module in model.mul_lr:
-    #     params_list = group_weight(params_list, module, nn.BatchNorm2d, 10)
-    # params_list = group_weight(params_list, model.context_path, torch.nn.BatchNorm2d, 1)
 
     print(model.parameters())

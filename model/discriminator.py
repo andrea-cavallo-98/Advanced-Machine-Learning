@@ -15,9 +15,6 @@ class FCDiscriminator(nn.Module):
 
         self.leaky_relu = nn.LeakyReLU(negative_slope=0.2, inplace=True)
 
-    # self.up_sample = nn.Upsample(scale_factor=32, mode='bilinear')
-    # self.sigmoid = nn.Sigmoid()
-
     def forward(self, x):
         x = self.conv1(x)
         x = self.leaky_relu(x)
@@ -28,8 +25,6 @@ class FCDiscriminator(nn.Module):
         x = self.conv4(x)
         x = self.leaky_relu(x)
         x = self.classifier(x)
-        # x = self.up_sample(x)
-        # x = self.sigmoid(x)
 
         return x
 
@@ -56,9 +51,6 @@ class Lightweight_FCDiscriminator(nn.Module):
 
         self.leaky_relu = nn.LeakyReLU(negative_slope=0.2, inplace=True)
 
-    # self.up_sample = nn.Upsample(scale_factor=32, mode='bilinear')
-    # self.sigmoid = nn.Sigmoid()
-
     def forward(self, x):
         x = self.depth_conv1(x)
         x = self.point_conv1(x)
@@ -74,7 +66,5 @@ class Lightweight_FCDiscriminator(nn.Module):
         x = self.leaky_relu(x)
         x = self.depth_classifier(x)
         x = self.point_classifier(x)
-        # x = self.up_sample(x)
-        # x = self.sigmoid(x)
 
         return x

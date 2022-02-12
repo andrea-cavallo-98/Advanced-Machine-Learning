@@ -9,13 +9,13 @@ from dataset.cityscapes_dataset import cityscapesDataSet
 from model.build_BiSeNet import BiSeNet
 import torch
 
-import cv2
-from utils import get_label_info, colour_code_segmentation
-
 IMG_MEAN = np.array((104.00698793, 116.66876762, 122.67891434), dtype=np.float32)
 
-
 def ssl(model, save_path, num_classes, batch_size, num_workers, crop_size, fixed_threshold = True):
+    """
+    Save pseudo-labels for target images in a folder. The labels can be chosen either with a 
+    fixed or a variable threshold
+    """
     if not os.path.exists(save_path):
         os.makedirs(save_path)
 
@@ -42,6 +42,7 @@ def ssl(model, save_path, num_classes, batch_size, num_workers, crop_size, fixed
           output = output.transpose(1, 2, 0)
 
           label, prob = np.argmax(output, axis=2), np.max(output, axis=2)
+          # Remove pixels whose confidence is lower than the threshold
           label[prob < fixed_thres] = 255
           classified_pixels += sum(sum(prob >= fixed_thres)) / (1024 * 512)
           predicted_label[index] = np.uint8(label.copy())
@@ -83,16 +84,15 @@ def ssl(model, save_path, num_classes, batch_size, num_workers, crop_size, fixed
               continue
           x = np.sort(x)
           thres.append(x[np.int(np.round(len(x) * 0.5))])
-      #print(thres)
       thres = np.array(thres)
       thres[thres > 0.9] = 0.9
-      #print(thres)
 
       for index in range(len(targetloader)):
           name = image_name[index]
           label = predicted_label[index]
           prob = predicted_prob[index]
           for i in range(num_classes):
+              # Remove pixels whose confidence is lower than the threshold
               label[(prob < thres[i]) * (label == i)] = 255
           output = np.asarray(label, dtype=np.uint8)
           output = Image.fromarray(output)

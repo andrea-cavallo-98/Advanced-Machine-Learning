@@ -1,10 +1,8 @@
 import argparse
 import torch
-import torch.nn as nn
 import torch.backends.cudnn as cudnn
 import torch.nn.functional as F
 import torch.optim as optim
-from torch.utils import data, model_zoo
 from torch.autograd import Variable
 import numpy as np
 import os
@@ -12,7 +10,7 @@ import os.path as osp
 from tqdm import tqdm
 from torchinfo import summary
 from utils import poly_lr_scheduler
-
+from torch.utils import data
 
 from model.build_BiSeNet import BiSeNet
 from model.discriminator import FCDiscriminator, Lightweight_FCDiscriminator
@@ -38,7 +36,6 @@ NUM_CLASSES = 19
 NUM_STEPS = 500 // BATCH_SIZE
 NUM_EPOCHS = 50
 POWER = 0.9
-RANDOM_SEED = 1234
 SAVE_NUM_IMAGES = 2
 SAVE_PRED_EVERY = 5
 SNAPSHOT_DIR = './snapshots/'
@@ -77,34 +74,20 @@ def get_arguments():
                         help="Path to the file listing the images in the target dataset.")
     parser.add_argument("--input-size-target", type=str, default=INPUT_SIZE_TARGET,
                         help="Comma-separated string with height and width of target images.")
-    parser.add_argument("--is-training", action="store_true",
-                        help="Whether to updates the running means and variances during the training.")
     parser.add_argument("--learning-rate", type=float, default=LEARNING_RATE,
                         help="Base learning rate for training with polynomial decay.")
     parser.add_argument("--learning-rate-D", type=float, default=LEARNING_RATE_D,
                         help="Base learning rate for discriminator.")
     parser.add_argument("--momentum", type=float, default=MOMENTUM,
                         help="Momentum component of the optimiser.")
-    parser.add_argument("--not-restore-last", action="store_true",
-                        help="Whether to not restore last (FC) layers.")
     parser.add_argument("--num-classes", type=int, default=NUM_CLASSES,
                         help="Number of classes to predict (including background).")
     parser.add_argument("--num-steps", type=int, default=NUM_STEPS,
                         help="Number of training steps.")
-    parser.add_argument("--num-steps-stop", type=int, default=None,
-                        help="Number of training steps for early stopping.")
     parser.add_argument("--num-epochs", type=int, default=NUM_EPOCHS,
                         help="Number of epochs.")
     parser.add_argument("--power", type=float, default=POWER,
                         help="Decay parameter to compute the learning rate.")
-    parser.add_argument("--random-mirror", action="store_true",
-                        help="Whether to randomly mirror the inputs during the training.")
-    parser.add_argument("--random-scale", action="store_true",
-                        help="Whether to randomly scale the inputs during the training.")
-    parser.add_argument("--random-seed", type=int, default=RANDOM_SEED,
-                        help="Random seed to have reproducible results.")
-    parser.add_argument("--save-num-images", type=int, default=SAVE_NUM_IMAGES,
-                        help="How many images to save.")
     parser.add_argument("--save-pred-every", type=int, default=SAVE_PRED_EVERY,
                         help="Save summaries and checkpoint every often.")
     parser.add_argument("--snapshot-dir", type=str, default=SNAPSHOT_DIR,
@@ -186,6 +169,8 @@ def main():
 
     for epoch in range(INITIAL_EPOCH, args.num_epochs):
 
+        # Define dataloader for source and target domain
+
         trainloader = data.DataLoader(
             GTA5DataSet(args.data_dir, args.data_list, crop_size=input_size, augment = True, mean=IMG_MEAN),
             batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers, pin_memory=True)
@@ -198,6 +183,8 @@ def main():
                                        pin_memory=True)
 
         targetloader_iter = enumerate(targetloader)
+
+        # Define optimizers
 
         optimizer = optim.SGD(model.parameters(),
                               lr=args.learning_rate, momentum=args.momentum, weight_decay=args.weight_decay)
@@ -224,6 +211,7 @@ def main():
 
         for i_iter in range(args.num_steps):
 
+            # Modify learning rates
             optimizer.zero_grad()
             poly_lr_scheduler(optimizer, args.learning_rate, iter=epoch, max_iter=args.num_epochs)
 

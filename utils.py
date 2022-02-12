@@ -104,14 +104,7 @@ def reverse_one_hot(image):
 		with a depth size of 1, where each pixel value is the classified
 		class key.
 	"""
-	# w = image.shape[0]
-	# h = image.shape[1]
-	# x = np.zeros([w,h,1])
 
-	# for i in range(0, w):
-	#     for j in range(0, h):
-	#         index, value = max(enumerate(image[i, j, :]), key=operator.itemgetter(1))
-	#         x[i, j] = index
 	image = image.permute(1, 2, 0)
 	x = torch.argmax(image, dim=-1)
 	return x
@@ -129,15 +122,7 @@ def colour_code_segmentation(image, label_values):
         Colour coded image for segmentation visualization
     """
 
-	# w = image.shape[0]
-	# h = image.shape[1]
-	# x = np.zeros([w,h,3])
-	# colour_codes = label_values
-	# for i in range(0, w):
-	#     for j in range(0, h):
-	#         x[i, j, :] = colour_codes[int(image[i, j])]
 	label_values = [label_values[key] for key in label_values]
-	# label_values.append([0, 0, 0])
 	colour_codes = np.array(label_values)
 
 	image[image == 255] = 19 

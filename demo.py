@@ -1,17 +1,14 @@
 import cv2
-import argparse
 from model.build_BiSeNet import BiSeNet
 import os
 import torch
 import cv2
-from imgaug import augmenters as iaa
 from PIL import Image
-from torchvision import transforms
 import numpy as np
 from utils import reverse_one_hot, get_label_info, colour_code_segmentation
 
 
-def encode_labels(self, mask):
+def encode_labels(mask):
     mapping_20 = [[0, 255],[1, 255],[2, 255],[3, 255],[4, 255],[5, 255],
     [6, 255],[7, 0],[8, 1],[9, 255],[10, 255],[11, 2],[12, 3],[13, 4],
     [14, 255],[15, 255],[16, 255],[17, 5],[18, 255],[19, 6],[20, 7],[21, 8],[22, 9],
@@ -25,6 +22,9 @@ def encode_labels(self, mask):
 
 
 def print_ground_truth(image_path, label_path):
+    """
+    Save a png image of an image with the corresponding label
+    """
     # read csv label path
     label_info = get_label_info()
 
@@ -32,7 +32,7 @@ def print_ground_truth(image_path, label_path):
     label = label.resize((1024, 512), Image.NEAREST)
     
     label = np.asarray(label, np.float32)
-    label = encode_labels(None, label)
+    label = encode_labels(label)
 
     label = colour_code_segmentation(np.array(label), label_info)
     label = cv2.resize(np.uint8(label), (960, 720), interpolation=cv2.INTER_NEAREST)
@@ -44,11 +44,14 @@ def print_ground_truth(image_path, label_path):
 
 
 def predict_on_image(model, data):
+    """
+    Predict segmentation labels for the provided image and save an image with
+    input image and predicted labels
+    """
     # pre-processing on image
     image = Image.open(data).convert('RGB')
     image = image.resize((1024, 512), Image.BILINEAR)
     image = np.asarray(image, np.float32)
-    size = image.shape
     image = image[:, :, ::-1]  # change to BGR
     image = image - np.array((104.00698793, 116.66876762, 122.67891434), dtype=np.float32)
     image = image.transpose((2, 0, 1))
