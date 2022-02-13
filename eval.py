@@ -7,10 +7,34 @@ import numpy as np
 from utils import reverse_one_hot, compute_global_accuracy, fast_hist, per_class_iu, cal_miou
 import tqdm
 from dataset.cityscapes_dataset import cityscapesDataSet
+from matplotlib import pyplot as plt
 
 IMG_MEAN = np.array((104.00698793, 116.66876762, 122.67891434), dtype=np.float32)
 
-def eval(model, dataloader, args, csv_path):
+labels = ["road", "sidewalk", "building", "wall", "fence", "pole", "light", "sign", "vegetation", "terrain", "sky",
+          "person", "rider", "car", "truck", "bus", "train", "motocycle", "bicycle"]
+
+
+def save_plot_per_class(hist):
+    """
+    Create a plot with per-class precision, recall and IoU of predictions
+    """
+    precision = np.diag(hist) / (hist.sum(0) + 1e-5)
+    recall = np.diag(hist) / (hist.sum(1) + 1e-5)
+
+    plt.xticks(range(19), labels, rotation=45)
+    plt.plot(precision, '-o')
+    plt.plot(recall, '-o')
+    plt.plot((np.diag(hist)) / (hist.sum(1) + hist.sum(0) - np.diag(hist) + 1e-5), '-o')
+    plt.legend(["Precision", "Recall", "Per-class IoU"])
+    plt.gcf().subplots_adjust(bottom=0.2)
+    plt.savefig("prec_DA_08")
+
+
+def eval(model, dataloader, args):
+    """
+    Perform evaluation of model on test dataset
+    """
     print('start test!')
     with torch.no_grad():
         model.eval()
@@ -18,7 +42,7 @@ def eval(model, dataloader, args, csv_path):
         tq = tqdm.tqdm(total=len(dataloader) * args.batch_size)
         tq.set_description('test')
         hist = np.zeros((args.num_classes, args.num_classes))
-        for i, (data, label, _) in enumerate(dataloader):
+        for _, (data, label, _) in enumerate(dataloader):
             tq.update(args.batch_size)
             if torch.cuda.is_available() and args.use_gpu:
                 data = data.cuda()
@@ -26,26 +50,19 @@ def eval(model, dataloader, args, csv_path):
             predict = model(data).squeeze()
             predict = reverse_one_hot(predict)
             predict = np.array(predict.cpu())
-            # predict = colour_code_segmentation(np.array(predict), label_info)
 
             label = label.squeeze()
-            # if args.loss == 'dice':
-            # label = reverse_one_hot(label)
             label = np.array(label.cpu())
-            # label = colour_code_segmentation(np.array(label), label_info)
 
             precision = compute_global_accuracy(predict, label)
             hist += fast_hist(label.flatten(), predict.flatten(), args.num_classes)
             precision_record.append(precision)
+        
+        save_plot_per_class(hist)
         precision = np.mean(precision_record)
-        #miou_list = per_class_iu(hist)[:-1]
         miou_list = per_class_iu(hist)
         miou = np.mean(miou_list)
 
-        # miou_dict, miou = cal_miou(miou_list, csv_path)
-        # print('IoU for each class:')
-        # for key in miou_dict:
-        #    print('{}:{},'.format(key, miou_dict[key]))
         tq.close()
         print('precision for test: %.3f' % precision)
         print('mIoU for validation: %.3f' % miou)
@@ -74,7 +91,8 @@ def main(params):
     # Check dataset sizes
     print('Test Dataset: {}'.format(len(test_dataset)))
 
-    # Dataloaders iterate over pytorch datasets and transparently provide useful functions (e.g. parallelization and shuffling)
+    # Dataloaders iterate over pytorch datasets and transparently provide useful functions
+    # (e.g. parallelization and shuffling)
     test_dataloader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=8)
 
     # build model
@@ -88,15 +106,13 @@ def main(params):
     model.module.load_state_dict(torch.load(args.checkpoint_path))
     print('Done!')
 
-    # get label info
-    # label_info = get_label_info(csv_path)
     # test
-    eval(model, test_dataloader, args, "file.csv")
+    eval(model, test_dataloader, args)
 
 
 if __name__ == '__main__':
     params = [
-        '--checkpoint_path', './checkpoints_18_sgd/latest_dice_loss.pth',
+        '--checkpoint_path', '/content/GTA5_124.pth',
         '--data', '/path/to/data',
         '--cuda', '0',
         '--context_path', 'resnet101',

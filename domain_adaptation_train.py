@@ -1,10 +1,8 @@
 import argparse
 import torch
-import torch.nn as nn
 import torch.backends.cudnn as cudnn
 import torch.nn.functional as F
 import torch.optim as optim
-from torch.utils import data, model_zoo
 from torch.autograd import Variable
 import numpy as np
 import os
@@ -12,7 +10,7 @@ import os.path as osp
 from tqdm import tqdm
 from torchinfo import summary
 from utils import poly_lr_scheduler
-
+from torch.utils import data
 
 from model.build_BiSeNet import BiSeNet
 from model.discriminator import FCDiscriminator, Lightweight_FCDiscriminator
@@ -21,7 +19,6 @@ from dataset.gta5_dataset import GTA5DataSet
 from dataset.cityscapes_dataset import cityscapesDataSet
 
 IMG_MEAN = np.array((104.00698793, 116.66876762, 122.67891434), dtype=np.float32)
-
 MODEL = 'BiSeNet'
 BATCH_SIZE = 4
 ITER_SIZE = 1
@@ -38,12 +35,11 @@ NUM_CLASSES = 19
 NUM_STEPS = 500 // BATCH_SIZE
 NUM_EPOCHS = 50
 POWER = 0.9
-RANDOM_SEED = 1234
 SAVE_NUM_IMAGES = 2
 SAVE_PRED_EVERY = 5
 SNAPSHOT_DIR = './snapshots/'
 WEIGHT_DECAY = 0.0005
-DISCRIMINATOR = "standard" # standard or lightweight
+DISCRIMINATOR = "standard"  # standard or lightweight
 PRETRAINED_MODEL_PATH = None
 PRETRAINED_DISCRIMINATOR_PATH = None
 INITIAL_EPOCH = 0
@@ -52,7 +48,8 @@ GAN = 'Vanilla'
 
 
 def get_arguments():
-    """Parse all the arguments provided from the CLI.
+    """
+    Parse all the arguments provided from the CLI.
     Returns:
       A list of parsed arguments.
     """
@@ -77,34 +74,20 @@ def get_arguments():
                         help="Path to the file listing the images in the target dataset.")
     parser.add_argument("--input-size-target", type=str, default=INPUT_SIZE_TARGET,
                         help="Comma-separated string with height and width of target images.")
-    parser.add_argument("--is-training", action="store_true",
-                        help="Whether to updates the running means and variances during the training.")
     parser.add_argument("--learning-rate", type=float, default=LEARNING_RATE,
                         help="Base learning rate for training with polynomial decay.")
     parser.add_argument("--learning-rate-D", type=float, default=LEARNING_RATE_D,
                         help="Base learning rate for discriminator.")
     parser.add_argument("--momentum", type=float, default=MOMENTUM,
                         help="Momentum component of the optimiser.")
-    parser.add_argument("--not-restore-last", action="store_true",
-                        help="Whether to not restore last (FC) layers.")
     parser.add_argument("--num-classes", type=int, default=NUM_CLASSES,
                         help="Number of classes to predict (including background).")
     parser.add_argument("--num-steps", type=int, default=NUM_STEPS,
                         help="Number of training steps.")
-    parser.add_argument("--num-steps-stop", type=int, default=None,
-                        help="Number of training steps for early stopping.")
     parser.add_argument("--num-epochs", type=int, default=NUM_EPOCHS,
                         help="Number of epochs.")
     parser.add_argument("--power", type=float, default=POWER,
                         help="Decay parameter to compute the learning rate.")
-    parser.add_argument("--random-mirror", action="store_true",
-                        help="Whether to randomly mirror the inputs during the training.")
-    parser.add_argument("--random-scale", action="store_true",
-                        help="Whether to randomly scale the inputs during the training.")
-    parser.add_argument("--random-seed", type=int, default=RANDOM_SEED,
-                        help="Random seed to have reproducible results.")
-    parser.add_argument("--save-num-images", type=int, default=SAVE_NUM_IMAGES,
-                        help="How many images to save.")
     parser.add_argument("--save-pred-every", type=int, default=SAVE_PRED_EVERY,
                         help="Save summaries and checkpoint every often.")
     parser.add_argument("--snapshot-dir", type=str, default=SNAPSHOT_DIR,
@@ -141,7 +124,6 @@ def loss_calc(pred, label, gpu):
 
 def main():
     """Create the model and start the training."""
-
     w, h = map(int, args.input_size.split(','))
     input_size = (w, h)
 
@@ -170,11 +152,11 @@ def main():
         model_D.load_state_dict(torch.load(args.pretrained_discriminator_path))
         print('Done!')
 
-    ## Produce summary of models
-    model.eval().cuda()
-    model_D.eval().cuda()
-    #summary(model, (BATCH_SIZE, 3, 1024, 512))
-    #summary(model_D, (BATCH_SIZE, 19, 1024, 512))
+    # Produce summary of models
+    # model.eval().cuda()
+    # model_D.eval().cuda()
+    # summary(model, (BATCH_SIZE, 3, 1024, 512))
+    # summary(model_D, (BATCH_SIZE, 19, 1024, 512))
 
     model.train()
     model.cuda(args.gpu)
@@ -185,6 +167,8 @@ def main():
         os.makedirs(args.snapshot_dir)
 
     for epoch in range(INITIAL_EPOCH, args.num_epochs):
+
+        # Define dataloader for source and target domain
 
         trainloader = data.DataLoader(
             GTA5DataSet(args.data_dir, args.data_list, crop_size=input_size, augment = True, mean=IMG_MEAN),
@@ -199,6 +183,8 @@ def main():
 
         targetloader_iter = enumerate(targetloader)
 
+        # Define optimizers
+
         optimizer = optim.SGD(model.parameters(),
                               lr=args.learning_rate, momentum=args.momentum, weight_decay=args.weight_decay)
         optimizer.zero_grad()
@@ -211,7 +197,7 @@ def main():
         elif args.gan == 'LS':
             bce_loss = torch.nn.MSELoss()
 
-        # labels for adversarial training
+        # Labels for adversarial training
         source_label = 0
         target_label = 1
 
@@ -224,6 +210,7 @@ def main():
 
         for i_iter in range(args.num_steps):
 
+            # Modify learning rates
             optimizer.zero_grad()
             poly_lr_scheduler(optimizer, args.learning_rate, iter=epoch, max_iter=args.num_epochs)
 
@@ -260,22 +247,16 @@ def main():
                 images, _, _ = batch
                 images = Variable(images).cuda(args.gpu)
 
-                pred_target, pred_target1, pred_target2 = model(images)
+                pred_target, _, _ = model(images)
 
-                D_out1 = model_D(F.softmax(pred_target))
-                D_out2 = model_D(F.softmax(pred_target1))
-                D_out3 = model_D(F.softmax(pred_target2))
-                loss_adv_target1 = bce_loss(D_out1, 
-                                  Variable(torch.FloatTensor(D_out1.data.size()).fill_(source_label)).cuda(args.gpu))
-                loss_adv_target2 = bce_loss(D_out2, 
-                                  Variable(torch.FloatTensor(D_out2.data.size()).fill_(source_label)).cuda(args.gpu))
-                loss_adv_target3 = bce_loss(D_out3, 
-                                  Variable(torch.FloatTensor(D_out3.data.size()).fill_(source_label)).cuda(args.gpu))
+                D_out = model_D(F.softmax(pred_target))
+                loss_adv_target = bce_loss(D_out, 
+                                  Variable(torch.FloatTensor(D_out.data.size()).fill_(source_label)).cuda(args.gpu))
 
-                loss = loss_adv_target1 + loss_adv_target2 + loss_adv_target3
+                loss = loss_adv_target
                 loss = loss / args.iter_size
                 loss.backward()
-                loss_adv_target_value += loss_adv_target1.data.cpu()
+                loss_adv_target_value += loss_adv_target.data.cpu()
 
                 # train D
 
@@ -284,31 +265,25 @@ def main():
                     param.requires_grad = True
 
                 # train with source
-                pred = pred.detach()
 
+                pred = pred.detach()
                 D_out = model_D(F.softmax(pred))
 
                 loss_D = bce_loss(D_out,
                                    Variable(torch.FloatTensor(D_out.data.size()).fill_(source_label)).cuda(args.gpu))
-
                 loss_D = loss_D / args.iter_size / 2
-
                 loss_D.backward()
-
                 loss_D_value += loss_D.data.cpu()
 
                 # train with target
-                pred_target = pred_target.detach()
 
+                pred_target = pred_target.detach()
                 D_out = model_D(F.softmax(pred_target))
 
                 loss_D = bce_loss(D_out,
                                    Variable(torch.FloatTensor(D_out.data.size()).fill_(target_label)).cuda(args.gpu))
-
                 loss_D = loss_D / args.iter_size / 2
-
                 loss_D.backward()
-
                 loss_D_value += loss_D.data.cpu()
 
             optimizer.step()

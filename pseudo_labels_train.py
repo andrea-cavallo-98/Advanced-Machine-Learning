@@ -1,8 +1,6 @@
 import argparse
 
-from sklearn import cross_decomposition
 import torch
-import torch.nn as nn
 import torch.backends.cudnn as cudnn
 import torch.nn.functional as F
 import torch.optim as optim
@@ -22,14 +20,12 @@ from dataset.cityscapes_dataset import cityscapesDataSet
 from SSL import ssl
 
 IMG_MEAN = np.array((104.00698793, 116.66876762, 122.67891434), dtype=np.float32)
-
 MODEL = 'BiSeNet'
 BATCH_SIZE = 4
 ITER_SIZE = 1
 NUM_WORKERS = 4
 DATA_DIRECTORY = './GTA5'
 DATA_LIST_PATH = './GTA5/train.txt'
-IGNORE_LABEL = 255
 INPUT_SIZE = '1024, 512'
 DATA_DIRECTORY_TARGET = './Cityscapes'
 DATA_LIST_PATH_TARGET = './Cityscapes/train.txt'
@@ -40,22 +36,16 @@ NUM_CLASSES = 19
 NUM_STEPS = 500 // BATCH_SIZE
 NUM_EPOCHS = 50
 POWER = 0.9
-RANDOM_SEED = 1234
 SAVE_NUM_IMAGES = 2
 SAVE_pred_EVERY = 5
 SNAPSHOT_DIR = '/content/drive/MyDrive/DA_PL_ckp'
 WEIGHT_DECAY = 0.0005
 INITIAL_EPOCH = 30
 FIXED_THRESHOLD = False  # True for fixed threshold, False for variable threshold
-
 SSL_EVERY = 1
-
 LEARNING_RATE_D = 1e-4
 LAMBDA_ADV_TARGET = 0.001
 GAN = 'Vanilla'
-
-TARGET = 'cityscapes'
-SET = 'train'
 DISCRIMINATOR_TYPE = 'lightweight'
 PRETRAINED_MODEL_PATH = 'GTA5_124.pth'
 PRETRAINED_DISCRIMINATOR_PATH = 'GTA5_124_D.pth'
@@ -69,8 +59,6 @@ def get_arguments():
     parser = argparse.ArgumentParser(description="DeepLab-ResNet Network")
     parser.add_argument("--model", type=str, default=MODEL,
                         help="available options : DeepLab")
-    parser.add_argument("--target", type=str, default=TARGET,
-                        help="available options : cityscapes")
     parser.add_argument("--batch-size", type=int, default=BATCH_SIZE,
                         help="Number of images sent to the network in one step.")
     parser.add_argument("--iter-size", type=int, default=ITER_SIZE,
@@ -81,8 +69,6 @@ def get_arguments():
                         help="Path to the directory containing the source dataset.")
     parser.add_argument("--data-list", type=str, default=DATA_LIST_PATH,
                         help="Path to the file listing the images in the source dataset.")
-    parser.add_argument("--ignore-label", type=int, default=IGNORE_LABEL,
-                        help="The index of the label to ignore during the training.")
     parser.add_argument("--input-size", type=str, default=INPUT_SIZE,
                         help="Comma-separated string with height and width of source images.")
     parser.add_argument("--data-dir-target", type=str, default=DATA_DIRECTORY_TARGET,
@@ -91,8 +77,6 @@ def get_arguments():
                         help="Path to the file listing the images in the target dataset.")
     parser.add_argument("--input-size-target", type=str, default=INPUT_SIZE_TARGET,
                         help="Comma-separated string with height and width of target images.")
-    parser.add_argument("--is-training", action="store_true",
-                        help="Whether to updates the running means and variances during the training.")
     parser.add_argument("--learning-rate", type=float, default=LEARNING_RATE,
                         help="Base learning rate for training with polynomial decay.")
     parser.add_argument("--learning-rate-D", type=float, default=LEARNING_RATE_D,
@@ -101,26 +85,14 @@ def get_arguments():
                         help="lambda_adv for adversarial training.")
     parser.add_argument("--momentum", type=float, default=MOMENTUM,
                         help="Momentum component of the optimiser.")
-    parser.add_argument("--not-restore-last", action="store_true",
-                        help="Whether to not restore last (FC) layers.")
     parser.add_argument("--num-classes", type=int, default=NUM_CLASSES,
                         help="Number of classes to predict (including background).")
     parser.add_argument("--num-steps", type=int, default=NUM_STEPS,
                         help="Number of training steps.")
-    parser.add_argument("--num-steps-stop", type=int, default=None,
-                        help="Number of training steps for early stopping.")
     parser.add_argument("--num-epochs", type=int, default=NUM_EPOCHS,
                         help="Number of epochs.")
     parser.add_argument("--power", type=float, default=POWER,
                         help="Decay parameter to compute the learning rate.")
-    parser.add_argument("--random-mirror", action="store_true",
-                        help="Whether to randomly mirror the inputs during the training.")
-    parser.add_argument("--random-scale", action="store_true",
-                        help="Whether to randomly scale the inputs during the training.")
-    parser.add_argument("--random-seed", type=int, default=RANDOM_SEED,
-                        help="Random seed to have reproducible results.")
-    parser.add_argument("--save-num-images", type=int, default=SAVE_NUM_IMAGES,
-                        help="How many images to save.")
     parser.add_argument("--save-pred-every", type=int, default=SAVE_pred_EVERY,
                         help="Save summaries and checkpoint every often.")
     parser.add_argument("--snapshot-dir", type=str, default=SNAPSHOT_DIR,
@@ -129,8 +101,6 @@ def get_arguments():
                         help="Regularisation parameter for L2-loss.")
     parser.add_argument("--gpu", type=int, default=0,
                         help="choose gpu device.")
-    parser.add_argument("--set", type=str, default=SET,
-                        help="choose adaptation set.")
     parser.add_argument("--gan", type=str, default=GAN,
                         help="choose the GAN objective.")
     parser.add_argument("--discriminator", type=str, default=DISCRIMINATOR_TYPE,
@@ -161,7 +131,6 @@ def loss_calc(pred, label, gpu):
 
 def main():
     """Create the model and start the training."""
-
     w, h = map(int, args.input_size.split(','))
     input_size = (w, h)
 
@@ -170,6 +139,7 @@ def main():
 
     cudnn.enabled = True
 
+    # Flag to track whether pseudo labels are available or not
     created_pseudo_labels = False
 
     # Create network
@@ -192,6 +162,7 @@ def main():
         model_D.load_state_dict(torch.load(args.pretrained_discriminator_path))
         print('Done!')
 
+    # Create folder to store pseudo labels
     if not os.path.exists(args.snapshot_dir):
         os.makedirs(args.snapshot_dir)
     if not os.path.exists('pseudo_labels'):
@@ -203,6 +174,8 @@ def main():
         model.cuda(args.gpu)
         model_D.train()
         model_D.cuda(args.gpu)
+
+        # Define dataloaders for source and target domain 
 
         trainloader = data.DataLoader(
             GTA5DataSet(args.data_dir, args.data_list, crop_size=input_size, mean=IMG_MEAN),
@@ -224,6 +197,8 @@ def main():
                 pin_memory=True)
 
         targetloader_iter = enumerate(targetloader)
+
+        # Define optimizers
 
         optimizer = optim.SGD(model.parameters(),
                               lr=args.learning_rate, momentum=args.momentum, weight_decay=args.weight_decay)
@@ -251,6 +226,7 @@ def main():
 
         for i_iter in range(args.num_steps):
 
+            # Update learning rate
             optimizer.zero_grad()
             poly_lr_scheduler(optimizer, args.learning_rate, iter=epoch, max_iter=args.num_epochs)
 
@@ -288,7 +264,7 @@ def main():
                     images, _, _ = batch
                     images = Variable(images).cuda(args.gpu)
 
-                    pred_target, pred_target1, pred_target2 = model(images)
+                    pred_target, _, _ = model(images)
                     loss_seg_trg = 0
 
                 else:
@@ -302,17 +278,10 @@ def main():
                     loss_seg_trg3 = loss_calc(pred_target2, labels, args.gpu)
                     loss_seg_trg = loss_seg_trg1 + loss_seg_trg2 + loss_seg_trg3
 
-                D_out1 = model_D(F.softmax(pred_target))
-                loss_adv_target1 = bce_loss(D_out1,
-                                            Variable(torch.FloatTensor(D_out1.data.size()).fill_(source_label)).cuda(args.gpu))
-                D_out2 = model_D(F.softmax(pred_target1))
-                loss_adv_target2 = bce_loss(D_out2,
-                                            Variable(torch.FloatTensor(D_out2.data.size()).fill_(source_label)).cuda(args.gpu))
-                D_out3 = model_D(F.softmax(pred_target2))
-                loss_adv_target3 = bce_loss(D_out3,
-                                            Variable(torch.FloatTensor(D_out3.data.size()).fill_(source_label)).cuda(args.gpu))
-
-                loss_adv_target = loss_adv_target1 + loss_adv_target2 + loss_adv_target3
+                D_out = model_D(F.softmax(pred_target))
+                loss_adv_target = bce_loss(D_out,
+                                            Variable(torch.FloatTensor(D_out.data.size()).fill_(source_label)).cuda(args.gpu))
+                
                 loss = loss_adv_target * args.lambda_adv_target + loss_seg_trg
                 loss = loss / args.iter_size
                 loss.backward()
@@ -326,31 +295,25 @@ def main():
                     param.requires_grad = True
 
                 # train with source
-                pred = pred.detach()
 
+                pred = pred.detach()
                 D_out = model_D(F.softmax(pred))
 
                 loss_D = bce_loss(D_out,
                                   Variable(torch.FloatTensor(D_out.data.size()).fill_(source_label)).cuda(args.gpu))
-
                 loss_D = loss_D / args.iter_size / 2
-
                 loss_D.backward()
-
                 loss_D_value += loss_D.data.cpu()
 
                 # train with target
-                pred_target = pred_target.detach()
 
+                pred_target = pred_target.detach()
                 D_out = model_D(F.softmax(pred_target))
 
                 loss_D = bce_loss(D_out,
                                   Variable(torch.FloatTensor(D_out.data.size()).fill_(target_label)).cuda(args.gpu))
-
                 loss_D = loss_D / args.iter_size / 2
-
                 loss_D.backward()
-
                 loss_D_value += loss_D.data.cpu()
 
             optimizer.step()
@@ -360,7 +323,6 @@ def main():
 
         tq.close()
 
-        # if epoch % args.ssl_every == 0 and epoch != 0:
         if (epoch + 1) % args.ssl_every == 0:
             ssl(model, 'pseudo_labels', args.num_classes, 1, args.num_workers, crop_size=input_size_target, fixed_threshold=FIXED_THRESHOLD)
             created_pseudo_labels = True

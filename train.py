@@ -1,5 +1,4 @@
 import argparse
-from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 import os
 from model.build_BiSeNet import BiSeNet
@@ -19,6 +18,9 @@ IMG_MEAN = np.array((104.00698793, 116.66876762, 122.67891434), dtype=np.float32
 
 
 def val(args, model, dataloader):
+    """
+    Perform validation
+    """
     print('start val!')
     with torch.no_grad():
 
@@ -27,7 +29,7 @@ def val(args, model, dataloader):
         tq = tqdm(total=len(dataloader) * 1)
         tq.set_description('eval')
         hist = np.zeros((args.num_classes, args.num_classes))
-        for i, (data, label, _) in enumerate(dataloader):
+        for _, (data, label, _) in enumerate(dataloader):
             tq.update(1)
             if torch.cuda.is_available() and args.use_gpu:
                 data = data.cuda()
@@ -71,7 +73,7 @@ def train(args, model, optimizer, dataloader_train, dataloader_val):
         tq = tqdm(total=len(dataloader_train) * args.batch_size)
         tq.set_description('epoch %d, lr %f' % (epoch, lr))
         loss_record = []
-        for i, (data, label, _) in enumerate(dataloader_train):
+        for _, (data, label, _) in enumerate(dataloader_train):
             data = data.cuda()
             if args.loss == 'dice':
                 label = label.long().cuda()
