@@ -8,8 +8,7 @@ from tensorboardX import SummaryWriter
 from tqdm import tqdm
 import numpy as np
 from utils import poly_lr_scheduler
-from utils import reverse_one_hot, compute_global_accuracy, fast_hist, \
-    per_class_iu
+from utils import reverse_one_hot, compute_global_accuracy, fast_hist, per_class_iu
 from loss import DiceLoss
 import torch.cuda.amp as amp
 from dataset.cityscapes_dataset import cityscapesDataSet

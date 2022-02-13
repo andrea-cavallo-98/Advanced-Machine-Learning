@@ -167,7 +167,7 @@ def main():
         model_D = Lightweight_FCDiscriminator(num_classes=args.num_classes)
     if args.pretrained_discriminator_path is not None:
         print('load model from %s ...' % args.pretrained_discriminator_path)
-        model.module.load_state_dict(torch.load(args.pretrained_discriminator_path))
+        model_D.load_state_dict(torch.load(args.pretrained_discriminator_path))
         print('Done!')
 
     ## Produce summary of models

@@ -38,6 +38,7 @@ class DiceLoss(nn.Module):
         return 1 - dice
         # return 1 - 2. * intersect / denominator
 
+
 class CrossEntropy2d(nn.Module):
 
     def __init__(self, size_average=True, ignore_label=255):
